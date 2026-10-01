@@ -31,7 +31,7 @@ FLOOR_H         EQU 34      ; copper-bar floor rows (222..255)
 NBARS           EQU 4
 
 ; Starfield: NSTARS points with (x, y, z); z runs from ZMAX down to ZMIN and wraps.
-NSTARS          EQU 48
+NSTARS          EQU 64
 STAR_SIZE       EQU 10      ; x.w y.w z.w offset.w mask.b class.b
 ZMIN            EQU 32
 ZRANGE          EQU 224

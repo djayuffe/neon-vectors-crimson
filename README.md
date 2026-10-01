@@ -5,10 +5,12 @@ Forked from the last verified-working baseline of the original project.
 
 Differences from the original:
 - Red / orange / amber / hot-pink copper-bar floor
-- Faster wireframe spin (Y axis 3 steps/frame instead of 2)
+- Faster wireframe spin and a counter-tumbling inner cube (three nested wireframes)
+- Denser starfield (64 stars)
+- New music: 7 generated instruments (saw bass, pulse lead, pad, kick, snare, hats), 5 patterns, 8-step song order, lead melodies, arpeggios, volume accents and a snare-roll fill
 - New scroller text
 
-Verified by running the built executable in FS-UAE (Amiga 1200): logo, balls, wireframe cube + octahedron, scroller and floor bars all render. Left mouse button exits.
+Verified by running the built executable in FS-UAE (Amiga 1200): logo, balls, all three wireframes, scroller and floor bars render. The music was checked by the validator and confirmed not to break playback, but not listened to. Left mouse button exits.
 
 Build: `make` (needs `vasmm68k_mot` on PATH or in `tools/bin/`). Output: `build/neon_vectors`.
 
