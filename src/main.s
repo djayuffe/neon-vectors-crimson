@@ -44,6 +44,7 @@ PROJ_F          EQU 128     ; star projection scale
 WIRE_D          EQU 220
 WIRE_ZOFF       EQU 300
 CUBE_S          EQU 42      ; cube vertices are (+-42, +-42, +-42)
+INNER_S         EQU 18      ; inner cube half-size
 OCTA_S          EQU 28      ; octahedron vertices are (+-28,0,0), (0,+-28,0), (0,0,+-28)
 WIRE_SWAY       EQU 64      ; sideways swing, pixels
 WIRE_ZOOM       EQU 18      ; breathing, distance units
@@ -1059,6 +1060,18 @@ DrawWire:
         moveq   #6-1,d7
         moveq   #OCTA_S,d6
         bsr     TransformVerts             ; a1 continues at the octahedron vertices
+; Inner cube: the cube's vertex table again, small, tumbling on its own axes.
+        move.w  ang_y,d0
+        add.w   d0,d0
+        move.w  ang_z,d1
+        neg.w   d1
+        move.w  ang_x,d2
+        lsl.w   #2,d2
+        bsr     CalcMatrix
+        lea     verts,a1
+        moveq   #8-1,d7
+        moveq   #INNER_S,d6
+        bsr     TransformVerts
 
         bsr     BlitWait                   ; the clear must be done before lines go in
         move.w  #SCREEN_W_BYTES,BLTCMOD(a6)    ; registers every line shares: set once
@@ -1392,7 +1405,7 @@ sz:          dc.w 0
 cz:          dc.w 0
 mat:         ds.w 9             ; 3x3 rotation matrix, scaled by 128
 tcol:        ds.l 9             ; matrix * vertex magnitude, by column
-proj:        ds.w 14*2          ; projected (x, y) of the 14 wireframe vertices
+proj:        ds.w 22*2          ; projected (x, y) of the 22 wireframe vertices
 stars:       ds.b NSTARS*STAR_SIZE
 
 ; The twelve DMA visible labels as link-time addresses. AllocChipMem rewrites
@@ -1435,6 +1448,9 @@ edges:
         dc.b 8,10, 8,11, 8,12, 8,13    ; octahedron
         dc.b 9,10, 9,11, 9,12, 9,13
         dc.b 10,12, 10,13, 11,12, 11,13
+        dc.b 14,15, 16,17, 18,19, 20,21 ; inner cube: along x
+        dc.b 14,16, 15,17, 18,20, 19,21 ;              along y
+        dc.b 14,18, 15,19, 16,20, 17,21 ;              along z
 edges_end:
 
 ; (x0, z0) of the ball ring for every angle (tools/gen_tables.py ring_tab).
