@@ -7,6 +7,7 @@ Differences from the original:
 - Red / orange / amber / hot-pink copper-bar floor
 - Faster wireframe spin and a counter-tumbling inner cube (three nested wireframes)
 - Denser starfield (64 stars)
+- 8 timed demo sections (256 frames each, looping): each sets star speed, spin rate, object sizes and which wireframes are shown (all three / cube / warp with fast stars / big octahedron / octahedron + inner cube / finale). Table: `sec_tab` in `src/main.s`
 - New music: 7 generated instruments (saw bass, pulse lead, pad, kick, snare, hats), 5 patterns, 8-step song order, lead melodies, arpeggios, volume accents and a snare-roll fill
 - New scroller text
 

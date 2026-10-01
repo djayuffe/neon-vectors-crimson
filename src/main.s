@@ -145,6 +145,7 @@ _start:
         bsr     BlitWait                   ; last frame's wireframe blits must be finished
         bsr     WireSwap                   ; show the buffer drawn last frame
         addq.w  #1,frame_no
+        bsr     UpdateSection              ; pick this frame's scene settings
         bsr     UpdateWave                 ; Copper rows above the beam first
         bsr     UpdateBars
         bsr     UpdateSprites              ; also before the beam reaches the ring
@@ -588,7 +589,7 @@ UpdateStars:
         moveq   #NSTARS-1,d7
 .dr:
         move.w  4(a2),d3
-        subq.w  #ZSPEED,d3
+        sub.w   sec_zspeed,d3
         cmp.w   #ZMIN,d3
         bge     .zok
         addi.w  #ZRANGE,d3                 ; back to the far end, new lane
@@ -1018,9 +1019,13 @@ DrawWire:
         move.l  a1,BLTDPTH(a6)
         move.w  #(MID_H<<6)|(SCREEN_W_BYTES/2),BLTSIZE(a6)
 
-        addq.w  #1,ang_x
-        addq.w  #3,ang_y
-        addq.w  #1,ang_z
+        move.w  sec_spin,d0
+        add.w   d0,ang_x
+        add.w   d0,ang_z
+        move.w  d0,d1
+        add.w   d0,d0
+        add.w   d1,d0                      ; 3 * spin
+        add.w   d0,ang_y
 ; Motion path: the object sways left and right and breathes towards and away from the eye.
         lea     sintab,a2
         move.w  ang_x,d0
@@ -1047,7 +1052,7 @@ DrawWire:
         bsr     CalcMatrix
         lea     verts,a1
         moveq   #8-1,d7
-        moveq   #CUBE_S,d6
+        move.w  sec_cube,d6
         bsr     TransformVerts
 ; Octahedron turns the other way.
         move.w  ang_z,d0
@@ -1058,7 +1063,7 @@ DrawWire:
         neg.w   d2
         bsr     CalcMatrix
         moveq   #6-1,d7
-        moveq   #OCTA_S,d6
+        move.w  sec_octa,d6
         bsr     TransformVerts             ; a1 continues at the octahedron vertices
 ; Inner cube: the cube's vertex table again, small, tumbling on its own axes.
         move.w  ang_y,d0
@@ -1070,7 +1075,7 @@ DrawWire:
         bsr     CalcMatrix
         lea     verts,a1
         moveq   #8-1,d7
-        moveq   #INNER_S,d6
+        move.w  sec_inner,d6
         bsr     TransformVerts
 
         bsr     BlitWait                   ; the clear must be done before lines go in
@@ -1081,8 +1086,28 @@ DrawWire:
         move.w  #$FFFF,BLTAFWM(a6)
         move.w  #$FFFF,BLTALWM(a6)
         lea     proj,a3
+        btst    #0,sec_mask+1
+        beq     .no_cube
         lea     edges,a4
+        lea     edges+24,a5
+        bsr     DrawEdges
+.no_cube:
+        btst    #1,sec_mask+1
+        beq     .no_octa
+        lea     edges+24,a4
+        lea     edges+48,a5
+        bsr     DrawEdges
+.no_octa:
+        btst    #2,sec_mask+1
+        beq     .no_inner
+        lea     edges+48,a4
         lea     edges_end,a5
+        bsr     DrawEdges
+.no_inner:
+        rts
+
+; a3 = proj, a4 = first edge, a5 = end of the edge range
+DrawEdges:
 .edge:
         moveq   #0,d4
         move.b  (a4)+,d4
@@ -1097,6 +1122,23 @@ DrawWire:
         bsr     BlitLine
         cmpa.l  a5,a4
         blo     .edge
+        rts
+
+; Demo sections: 8 scenes of 256 frames. Each row of sec_tab is
+; star speed, spin, cube size, octahedron size, inner cube size, visible objects (bit 0 cube, 1 octa, 2 inner).
+UpdateSection:
+        move.w  frame_no,d0
+        lsr.w   #8,d0
+        andi.w  #7,d0
+        mulu    #12,d0
+        lea     sec_tab,a0
+        add.w   d0,a0
+        move.w  (a0)+,sec_zspeed
+        move.w  (a0)+,sec_spin
+        move.w  (a0)+,sec_cube
+        move.w  (a0)+,sec_octa
+        move.w  (a0)+,sec_inner
+        move.w  (a0)+,sec_mask
         rts
 
 ; (d0.w * d1.w) >> 7, result in d0. Used for the 7 bit fixed point matrix.
@@ -1405,6 +1447,21 @@ sz:          dc.w 0
 cz:          dc.w 0
 mat:         ds.w 9             ; 3x3 rotation matrix, scaled by 128
 tcol:        ds.l 9             ; matrix * vertex magnitude, by column
+sec_zspeed:  dc.w 2
+sec_spin:    dc.w 1
+sec_cube:    dc.w CUBE_S
+sec_octa:    dc.w OCTA_S
+sec_inner:   dc.w INNER_S
+sec_mask:    dc.w 7
+sec_tab:
+        dc.w 2,1,42,28,18,7            ; 0 intro: all three
+        dc.w 2,1,42,28,18,1            ; 1 cube alone
+        dc.w 7,1,42,28,34,4            ; 2 warp: fast stars, big inner cube
+        dc.w 2,2,42,40,18,2            ; 3 big octahedron
+        dc.w 3,1,42,28,18,7            ; 4 all three, quicker stars
+        dc.w 2,2,42,36,30,6            ; 5 octahedron + inner cube
+        dc.w 8,2,42,28,18,1            ; 6 warp: fastest stars, cube
+        dc.w 3,2,42,28,18,7            ; 7 finale: all three, fast spin
 proj:        ds.w 22*2          ; projected (x, y) of the 22 wireframe vertices
 stars:       ds.b NSTARS*STAR_SIZE
 
