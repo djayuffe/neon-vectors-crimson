@@ -1,0 +1,18 @@
+# build output and make stamps
+build/
+assets/.generated
+
+# assembler scratch files produced by running vasm by hand from the root
+a.out
+*.lst
+
+# toolchain downloaded by `make toolchain`
+tools/bin/
+tools/vendor/
+
+# Python / OS noise
+__pycache__/
+*.pyc
+.venv/
+venv/
+.DS_Store
