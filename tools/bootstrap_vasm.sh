@@ -11,12 +11,20 @@ mkdir -p "$ROOT/tools/bin" "$VENDOR"
 if command -v vasmm68k_mot >/dev/null 2>&1; then command -v vasmm68k_mot; exit 0; fi
 if [ -x "$OUT" ]; then echo "$OUT"; exit 0; fi
 if [ ! -f "$SRC/Makefile" ]; then
+  if [ -n "${VASM_SRC:-}" ]; then
+    echo "VASM_SRC must name an existing VASM source tree with a Makefile." >&2
+    exit 2
+  fi
   TMP="$VENDOR/vasm.tar.gz"
   echo "Fetching VASM source from $URL" >&2
   if command -v curl >/dev/null 2>&1; then curl -fL "$URL" -o "$TMP"
   elif command -v wget >/dev/null 2>&1; then wget -O "$TMP" "$URL"
   else echo "Need curl/wget, or set VASM_SRC to an unpacked VASM source tree." >&2; exit 2; fi
-  rm -rf "$SRC"; mkdir -p "$SRC"
+  if [ -e "$SRC" ]; then
+    echo "Refusing to replace incomplete source directory: $SRC" >&2
+    exit 2
+  fi
+  mkdir -p "$SRC"
   tar -xzf "$TMP" -C "$SRC" --strip-components=1
 fi
 make -C "$SRC" CPU=m68k SYNTAX=mot

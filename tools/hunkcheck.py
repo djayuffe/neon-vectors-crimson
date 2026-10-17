@@ -1,100 +1,118 @@
 #!/usr/bin/env python3
-"""Amiga hunk executable structural validator.
+"""Validate the classic HUNK executable subset emitted by this project's VASM flags.
 
-A hunkexe starts with HUNK_HEADER, then a table holding one size entry per
-hunk, then the hunk blocks themselves. The top two bits of a size entry are the
-memory requirement (Amiga hunk format / doshunks.h):
-
-  00 any, fast preferred   10 fast required (bit 31, HUNKB_FAST)
-  01 chip required (bit 30, HUNKB_CHIP)
-  11 an extra longword follows with the exact flags
-
-HUNK_NAME carries a section name and is counted as one length longword plus
-the name itself, so a parser that does not know it rejects every real
-executable.
+Rejects overlays, unresolved externals, short relocations and unknown block types.
+This is a structural checker, not an Amiga DOS loader.
 """
 from pathlib import Path
-import struct, sys
+import struct
+import sys
 
-HUNK_UNIT=0x3E7; HUNK_NAME=0x3E8; HUNK_CODE=0x3E9; HUNK_DATA=0x3EA
-HUNK_BSS=0x3EB; HUNK_RELOC32=0x3EC; HUNK_RELOC16=0x3ED; HUNK_RELOC8=0x3EE
-HUNK_EXT=0x3EF; HUNK_SYMBOL=0x3F0; HUNK_DEBUG=0x3F1; HUNK_END=0x3F2
-HUNK_HEADER=0x3F3; HUNK_OVERLAY=0x3F5; HUNK_BREAK=0x3F6
-HUNKB_ADVISORY=29; HUNKB_CHIP=30; HUNKB_FAST=31
-MEM_ANY=0; MEM_CHIP=1; MEM_FAST=2; MEM_EXT=3   # bit 30 = chip, bit 31 = fast
-MEMNAMES={MEM_ANY:'any (fast preferred)',MEM_FAST:'fast required',MEM_CHIP:'chip required',MEM_EXT:'explicit flags'}
 
-p=Path(sys.argv[1] if len(sys.argv)>1 else 'build/neon_vectors')
-b=p.read_bytes(); off=0
-def u32():
-    global off
-    if off+4>len(b): raise ValueError('truncated at offset %d'%off)
-    v=struct.unpack_from('>I',b,off)[0]; off+=4; return v
-try:
-    if u32()!=HUNK_HEADER: raise ValueError('not HUNK_HEADER')
-    libs=[]
+def validate(data):
+    off = 0
+
+    def take(count):
+        nonlocal off
+        if count < 0 or count > len(data) - off:
+            raise ValueError('truncated block at offset %d' % off)
+        result = data[off:off+count]
+        off += count
+        return result
+
+    def word():
+        return struct.unpack('>I', take(4))[0]
+
+    def string():
+        return take(word()*4).split(b'\0')[0].decode('latin-1')
+
+    if word() != 0x3F3:
+        raise ValueError('not HUNK_HEADER')
+    # Resident library names are counted strings, terminated by a zero length.
     while True:
-        # The header block is a list of library name pointers, not a count.
-        n=u32()
-        if n==0: break
-        libs.append(n)
-    table=u32(); first=u32(); last=u32()
-    if last<first or table!=last-first+1: raise ValueError('bad hunk table')
-    sizes=[]; memflags=[]
+        length = word()
+        if not length:
+            break
+        take(length*4)
+    table, first, last = word(), word(), word()
+    if first != 0 or not table or last != table-1:
+        raise ValueError('expected a complete non-overlay hunk table starting at zero')
+    if table > (len(data)-off)//4:
+        raise ValueError('truncated hunk table')
+    sizes, flags = [], []
     for _ in range(table):
-        v=u32()
-        kind=(v>>30)&3
-        if kind==MEM_EXT:
-            memflags.append(u32()&0x7fffffff); sizes.append((v&0x3fffffff)*4)
-        else:
-            memflags.append({MEM_ANY:MEM_ANY,MEM_FAST:MEM_FAST,MEM_CHIP:MEM_CHIP}[kind]); sizes.append((v&0x3fffffff)*4)
-    hunks=0; names=[]; kinds=[]
-    while off<len(b):
-        t=u32()&0x3fffffff
-        if t in (HUNK_CODE,HUNK_DATA):
-            # The count has to be read into a local first: "off += u32()*4" would
-            # add to the value off had before u32() advanced it, landing the
-            # parser four bytes short and reading payload words as hunk types.
-            n=u32()
-            if off+n*4>len(b): raise ValueError('truncated hunk payload')
-            off+=n*4; hunks+=1; kinds.append('code' if t==HUNK_CODE else 'data')
-        elif t==HUNK_BSS: u32(); hunks+=1; kinds.append('bss')
-        elif t==HUNK_NAME:
-            # The type long is followed by a counted block: a negative longword
-            # count that includes itself, then the characters. Anything else is
-            # a layout this parser does not understand, so say so loudly.
-            cnt=struct.unpack('>i',b[off:off+4])[0]; off+=4
-            if cnt>=0: raise ValueError('HUNK_NAME is not followed by a negative longword count (got %d)'%cnt)
-            total=(-cnt-1)*4
-            if off+total>len(b): raise ValueError('truncated HUNK_NAME')
-            names.append(b[off:off+total].split(b'\0')[0].decode('latin-1'))
-            off+=total
-        elif t in (HUNK_RELOC32,HUNK_RELOC16,HUNK_RELOC8):
-            if t==HUNK_RELOC32:
-                while True:
-                    n=u32()
-                    if n==0: break
-                    u32(); off+=n*4
-            else: raise ValueError('hunkexe should not contain 16/8 bit relocation hunks (0x%x)'%t)
-        elif t==HUNK_SYMBOL:
+        entry = word()
+        flags.append(word() if entry >> 30 == 3 else entry >> 30)
+        sizes.append((entry & 0x3FFFFFFF)*4)
+    kinds, names = [], []
+    active = False
+    payload_size = 0
+    while off < len(data):
+        kind = word() & 0x3FFFFFFF
+        if kind == 0x3E8:  # HUNK_NAME: positive longword count
+            names.append(string())
+        elif kind in (0x3E9, 0x3EA, 0x3EB):
+            if active or len(kinds) >= table:
+                raise ValueError('missing HUNK_END or excess section')
+            payload_size = word()*4
+            if payload_size > sizes[len(kinds)]:
+                raise ValueError('section exceeds allocated hunk size')
+            kinds.append({0x3E9: 'code', 0x3EA: 'data', 0x3EB: 'bss'}[kind])
+            active = True
+            if kind != 0x3EB:
+                take(payload_size)
+        elif kind == 0x3EC:
+            if not active:
+                raise ValueError('relocations outside section')
             while True:
-                n=u32()
-                if n==0: break
-                off+=n*4; u32()
-        elif t==HUNK_DEBUG:
-            n=u32()
-            if off+n*4>len(b): raise ValueError('truncated HUNK_DEBUG')
-            off+=n*4
-        elif t==HUNK_END: pass
-        elif t in (HUNK_OVERLAY,HUNK_BREAK): raise ValueError('overlay hunk, not a plain executable')
-        elif t==HUNK_EXT: raise ValueError('external reference hunk: unresolved symbol, not an executable')
-        else: raise ValueError('unsupported/invalid hunk type 0x%x at %d'%(t,off-4))
-    if off!=len(b): raise ValueError('trailing bytes')
-    if hunks!=table: raise ValueError('hunk count %d != table %d'%(hunks,table))
-    print(f'HUNK OK: {p} bytes={len(b)} hunks={hunks} types={kinds} sizes={sizes}')
-    for i,(kind,size,mem) in enumerate(zip(kinds,sizes,memflags)):
-        print(f'  hunk {i}: {kind:4} {size:6} bytes  memory={MEMNAMES.get(mem,"0x%08x"%mem)}')
-    if names: print('  names: '+', '.join(names))
-    if libs: print(f'  libraries: {len(libs)}')
-except Exception as e:
-    print('HUNK INVALID:',e,file=sys.stderr); sys.exit(1)
+                count = word()
+                if not count:
+                    break
+                if word() >= table:
+                    raise ValueError('relocation target outside hunk table')
+                if count > (len(data)-off)//4:
+                    raise ValueError('truncated relocation group')
+                for _ in range(count):
+                    pos = word()
+                    if pos & 1 or pos+4 > payload_size:
+                        raise ValueError('relocation offset outside section or misaligned')
+        elif kind == 0x3F0:
+            if not active:
+                raise ValueError('symbols outside section')
+            while True:
+                length = word()
+                if not length:
+                    break
+                take(length*4)
+                if word() > sizes[len(kinds)-1]:
+                    raise ValueError('symbol outside section')
+        elif kind == 0x3F1:
+            if not active:
+                raise ValueError('debug block outside section')
+            take(word()*4)
+        elif kind == 0x3F2:
+            if not active:
+                raise ValueError('unexpected HUNK_END')
+            active = False
+        else:
+            raise ValueError('unsupported hunk type 0x%x' % kind)
+    if active or len(kinds) != table:
+        raise ValueError('incomplete hunk sections')
+    return kinds, sizes, flags, names
+
+
+def main():
+    path = Path(sys.argv[1] if len(sys.argv)>1 else 'build/neon_vectors')
+    try:
+        data = path.read_bytes()
+        kinds, sizes, flags, names = validate(data)
+    except (OSError, ValueError) as error:
+        print('HUNK INVALID:', error, file=sys.stderr)
+        return 1
+    print('HUNK OK: %s bytes=%d hunks=%d types=%s sizes=%s memory=%s' %
+          (path, len(data), len(kinds), kinds, sizes, flags))
+    return 0
+
+
+if __name__ == '__main__':
+    sys.exit(main())

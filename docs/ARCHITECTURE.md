@@ -48,11 +48,11 @@ the hunk in ordinary memory, so the program does the work itself:
 1. `AllocMem(d0 = size, d1 = MEMF_CHIP)` for the whole contiguous payload block.
 2. `TypeOfMem(a1 = block)` to confirm chip RAM; otherwise `FreeMem` and fail with code 20.
 3. `CopyMem(a0 = source, a1 = dest, d0 = size)`.
-4. Rewrite each of the ten longwords in `reloc_table` as `base + (assembled − block start)`.
+4. Rewrite each of the twelve longwords in `reloc_table` as `base + (assembled − block start)`.
 
-The block holds, in order, the Copper list, a spare word, four plane-sized screen buffers (plane 0, two
-wireframe buffers, plane 2), logo, font, the `$8080` silence word and the MOD. Code reaches them only through `ptr_screen`, `ptr_logo`, `ptr_font`,
-`ptr_silence`, `ptr_mod`, `ptr_copper`, `ptr_cop_bpl1`, `ptr_raster`, `ptr_wave` and `ptr_bars` (slots in
+The block holds, in order, the Copper list, a spare word, six plane-sized screen buffers (plane 0, two
+plane-1 buffers, plane 2 and two plane-3 buffers), logo, font, the `$0000` silence word and the MOD. Code reaches them only through `ptr_screen`, `ptr_logo`, `ptr_font`,
+`ptr_silence`, `ptr_mod`, `ptr_copper`, `ptr_cop_bpl1`, `ptr_raster`, `ptr_wave`, `ptr_bars`, `ptr_sprites` and `ptr_cop_spr` (slots in
 `reloc_table`). A direct reference to one of those labels would keep pointing at the loaded
 hunk, so `tools/validate.py` rejects it, and the emulation test verifies that the original
 hunk is never modified.
@@ -64,8 +64,8 @@ cannot reach another hunk and can never be a destination, so it is not used for 
 ## Copper list
 
 A sequence of `MOVE` register/value pairs ending with the `$FFFF,$FFFE` stall. From `cop_bpl1`
-the six bitplane-pointer pairs put the register words at byte offsets 0/4/8/12/16/20 and the
-data words that `PatchCopper` writes at 2/6, 10/14 and 18/22.
+the four bitplane-pointer pairs put the register words at byte offsets 0/4/8/12/16/20 and the
+data words that `PatchCopper` writes at 2/6, 10/14, 18/22 and 26/30.
 
 A WAIT is two words: position with bit 0 set, then mask with bit 0 clear and bit 15 set
 (blitter-finished ignored). After the header, palette and pointer pairs the list is a long run of
@@ -78,20 +78,22 @@ counter and later WAITs mean 256 + n. `cop_raster_color` is the `COLOR00` pair a
 
 ## Frame pipeline
 
-`BeamLine` reads `VPOSR` and `VHPOSR` with a single long access (they are adjacent, so the pair
-cannot straddle a line change) and returns the 9-bit line number in `d0`. `WaitFrameSync`
+`BeamLine` reads adjacent `VPOSR` and `VHPOSR`, then rechecks the high vertical
+bit and retries if it changed. This protects the 68000’s two bus reads against
+a torn line at the 255/256 boundary or frame wrap. It returns the 9-bit line
+number in `d0`. `WaitFrameSync`
 first leaves the sync zone, then waits for line ≥ 300, the first line below the display window
 (`DIWSTOP` = line 300). One iteration of the main loop therefore equals one PAL frame, giving a
 50 Hz tick rate on both the 312- and 313-line frames. Each iteration runs, in order:
 
 1. `BlitWait`, then `WireSwap` — show the wireframe buffer that was finished last frame;
-2. `UpdateWave` and `UpdateBars` — rewrite the logo's `BPLCON1` rows and the floor's colour rows
+2. Increment the frame counter and `UpdateSection`; `UpdateWave` and `UpdateBars` — rewrite the logo's `BPLCON1` rows and the floor's colour rows
    in the Copper list (they must finish before the beam reaches the logo);
-3. `UpdateRaster` — rewrites the animated `COLOR00` slot;
+3. `UpdateSprites` updates the ring; `UpdateRaster` rewrites the animated `COLOR00` slot;
 4. `UpdateStars` — erase, advance and redraw the 3D starfield;
 5. `UpdateScroller` — every second frame, shift the strip one pixel and insert a column;
 6. `MOD_Tick` — one tracker tick (a row every 6 ticks), after the time-critical drawing;
-7. `DrawWire` — clear the hidden buffer's band with the blitter, move/rotate/project, draw 24 edges
+7. `DrawWire` — clear the hidden buffer's band with the blitter, move/rotate/project, draw up to 36 edges
    with the blitter;
 8. test the left mouse button.
 
@@ -99,19 +101,19 @@ first leaves the sync zone, then waits for line ≥ 300, the first line below th
 so it alone is double-buffered. The Copper rows for the wave and the bars are rewritten first and
 finish before the beam reaches the logo; the stars finish before the beam reaches the starfield
 band; the scroller is shifted before the beam reaches its strip. `tools/emu_test.py` measures all
-three deadlines: in the worst frame the margins are about 19 000, 18 000 and 64 000 cycles.
+drawing deadlines and reports the minimum margin for each run.
 
-**CPU budget** (emulated 68000, no DMA contention, blitter time not included since it runs in
-parallel): about 77 000 cycles per frame on average, 84 000 worst case, i.e. 54–59 % of a 142 000
-cycle frame. The main costs are the starfield (~25 000), the wireframe (~32 000), the wave and
-bars (~9 000) and the scroller (~5 000 averaged over two frames).
+**CPU budget.** The behavioural test reports CPU cost and drawing deadlines for
+its actual run. Crimson draws more objects and stars than the inherited baseline;
+old 54–59% timing figures do not describe this version. DMA contention and blitter
+duration remain outside the model.
 
 If the beam wraps before line 300 is reached — a 262-line NTSC frame — the wait ends at the wrap
 instead of hanging with interrupts disabled.
 
 ## Display
 
-- 320×256 low resolution PAL, three bitplanes, 40 bytes per line; 21 words fetched per line with
+- 320×256 low resolution PAL, four bitplanes, 40 bytes per line; 21 words fetched per line with
   modulo −2 and planes starting one word early (for the per-row `BPLCON1` scroll)
 - Plane 0: logo, mid stars, scroller; plane 1: wireframe (double-buffered); plane 2: far/near stars
 - Copper-programmed DIW/DDF, bitplane pointers, palette, and per-row colour and scroll changes

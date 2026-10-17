@@ -15,8 +15,8 @@ models just enough of the machine to judge the program:
   * Paula channel starts are latched when the DMA bit turns on and compared with
     what the MOD file says should play.
 
-It does NOT prove the program works on real hardware: no blitter, no DMA cycle
-stealing (so CPU timing is optimistic), no sprites, no Kickstart behaviour.
+It does NOT prove the program works on real hardware: no blitter timing, no DMA cycle
+stealing (so CPU timing is optimistic), no Kickstart behaviour. Sprite compositing is modeled for the eight ball sprites.
 Use an emulator such as FS-UAE/WinUAE/Amiberry for that.
 
 Usage: emu_test.py [--frames N] [--png FILE] [--alloc-fast] [--loader-chip]
@@ -88,6 +88,8 @@ def assemble(out):
 
 # --- Hunk loader ---------------------------------------------------------------
 def parse_hunks(b):
+    import hunkcheck
+    hunkcheck.validate(b)
     off = 0
     def u32():
         nonlocal off
@@ -103,7 +105,7 @@ def parse_hunks(b):
     while off < len(b):
         t = u32() & 0x3FFFFFFF
         if t == 0x3E8:                       # HUNK_NAME
-            cnt = -struct.unpack_from('>i', b, off)[0]; off += 4 + (cnt - 1) * 4
+            cnt = u32(); off += cnt * 4
         elif t in (0x3E9, 0x3EA):
             k = u32(); cur = dict(data=b[off:off + k * 4], relocs=[]); off += k * 4; hunks.append(cur)
         elif t == 0x3EB:
@@ -594,8 +596,8 @@ class Amiga:
                     c = ((wa >> (15 - bit)) & 1) | (((wb >> (15 - bit)) & 1) << 1)
                     x = hstart - 0x81 + bit
                     if c and 0 <= x < 320 and 0 <= row < len(img):
-                        # BPLCON2 PF1P = code: the playfield is in front of sprites 2*code and up
-                        if n >= 2 * (first.get(0x104, 0) & 7) or planes_px[row][x] == 0:
+                        # Normal (single) playfield priority is PF2P, BPLCON2 bits 5..3.
+                        if n < 2 * ((first.get(0x104, 0) >> 3) & 7) or planes_px[row][x] == 0:
                             img[row][x] = pal_by_line[vstart + ln][16 + 4 * (n // 2) + c]
         out['spr_pages'] = [mem.r_block(out['spr_ptr'][n], 80) for n in range(8)]
         out['px'] = planes_px
@@ -625,6 +627,22 @@ def trunc_div(a, b):
     return q if (a >= 0) == (b > 0) else -q
 
 
+SCENES = (
+    (2, 1, 42, 28, 18, 7), (2, 1, 42, 28, 18, 1),
+    (7, 1, 42, 28, 34, 4), (2, 2, 42, 40, 18, 2),
+    (3, 1, 42, 28, 18, 7), (2, 2, 42, 36, 30, 6),
+    (8, 2, 42, 28, 18, 1), (3, 2, 42, 28, 18, 7),
+)
+
+
+def scene(frame):
+    return SCENES[(frame >> 8) & 7]
+
+
+def spin_phase(updates):
+    return sum(scene(frame)[1] for frame in range(1, updates + 1))
+
+
 def ref_stars(nupdates, nstars, consts):
     ZMIN, ZRANGE, ZSPEED, ZMID, ZNEAR, PROJ_F, CX, CY, Y0, H = consts
     recip = lambda z: int(round(PROJ_F * 256 / z))
@@ -639,9 +657,9 @@ def ref_stars(nupdates, nstars, consts):
         y = ((((rand() & 255) - 128) * 5) >> 3)
         z = (((rand() & 255) * ZRANGE) >> 8) + ZMIN
         st.append([x, y, z])
-    for _ in range(nupdates):
+    for frame in range(1, nupdates + 1):
         for q in st:
-            q[2] -= ZSPEED
+            q[2] -= scene(frame)[0]
             if q[2] < ZMIN:
                 q[2] += ZRANGE
                 q[0] = (rand() & 511) - 255
@@ -704,13 +722,22 @@ def ref_wire(k, verts, edges, consts):
         zc = ((m[6] * x + m[7] * y + m[8] * z) >> 7) + zoff
         r = int(round(D * 256 / zc))
         return (((xr * r) >> 8) + cx, ((yr * r) >> 8) + CY)
+    settings = scene(k)
+    k = spin_phase(k)
     cx = CX + ((sin(k) * SWAY) >> 7)              # sways with the x angle,
-    zoff = ZOFF + ((sin(2 * k) * ZOOM) >> 7)      # breathes with the y angle
-    ma = matrix(k, 2 * k, k)
-    mb = matrix(2 * k, -k, -2 * k)
-    proj = [project(ma, v) for v in verts[:8]] + [project(mb, v) for v in verts[8:]]
+    zoff = ZOFF + ((sin(3 * k) * ZOOM) >> 7)      # breathes with the y angle
+    ma = matrix(k, 3 * k, k)
+    mb = matrix(2 * k, -k, -3 * k)
+    mc = matrix(6 * k, -k, 4 * k)
+    def resized(v, size):
+        return tuple(size if c > 0 else -size if c < 0 else 0 for c in v)
+    proj = ([project(ma, resized(v, settings[2])) for v in verts[:8]] +
+            [project(mb, resized(v, settings[3])) for v in verts[8:]] +
+            [project(mc, resized(v, settings[4])) for v in verts[:8]])
     pix = set()
-    for i, j in edges:
+    for e, (i, j) in enumerate(edges):
+        if not settings[5] & (1 << (e // 12)):
+            continue
         pix.update(ref_bresenham(proj[i][0], proj[i][1], proj[j][0], proj[j][1]))
     return pix, proj
 
@@ -769,11 +796,14 @@ def main():
     ap.add_argument('--ntsc', action='store_true', help='262 line frame: the PAL-only intro must still run and exit, not hang')
     ap.add_argument('--loader-chip', action='store_true', help='let the loader honour the chip hunk flag')
     args = ap.parse_args()
+    if args.frames < 4 or args.snap < 3:
+        ap.error('--frames must be at least 4 and --snap at least 3')
     global FRAME_LINES, FRAME_CYCLES
     if args.ntsc:
         FRAME_LINES = 262; FRAME_CYCLES = LINE_CYCLES * FRAME_LINES
 
-    tmp = Path(tempfile.mkdtemp(prefix='neon_emu_'))
+    workspace = tempfile.TemporaryDirectory(prefix='neon_emu_')
+    tmp = Path(workspace.name)
     exe = tmp / 'neon_vectors_sym'
     assemble(exe)
     mod = (ROOT / 'assets/neon.mod').read_bytes()
@@ -800,6 +830,10 @@ def main():
             eb = a.mem.r_block(a.sym('edges'), a.sym('edges_end') - a.sym('edges'))
             a.we = [(eb[i], eb[i + 1]) for i in range(0, len(eb), 2)]
         pix, _ = ref_wire(n - 2, a.wv, a.we, (eq['WIRE_D'], eq['WIRE_ZOFF'], eq['MID_CX'], eq['MID_CY'], eq['WIRE_SWAY'], eq['WIRE_ZOOM']))
+        outside = [p for p in pix if not (0 <= p[0] < 320 and eq['MID_Y0'] <= p[1] < eq['MID_Y0'] + eq['MID_H'])]
+        if outside:
+            wire_fail.append('frame %d: wireframe leaves its band: %s' % (n, outside[:3]))
+            return
         want = bytearray(10240)
         want[eq['LOGO_Y'] * 40:(eq['LOGO_Y'] + eq['LOGO_H']) * 40] = a.logo_p1
         for x, y in pix:
@@ -923,7 +957,7 @@ def main():
             sn = (b0 & 0xF0) | (b2 >> 4); per = ((b0 & 15) << 8) | b1
             if sn and per:
                 o, ln, ls, ll, vol = smp[sn - 1]
-                expected.append((r, ch, o, max(ln, 1), per, vol, ls, ll))
+                expected.append((r, ch, o, max(ln, 1), per, min(b3, 64) if b2 & 15 == 0xC else vol, ls, ll))
     got = [(l[1], l[2] - chip_mod_lo, l[3], l[4], l[5]) for l in a.latches]
     exp = [(e[1], e[2], e[3], e[4], e[5]) for e in expected]
     check(len(got) == len(exp), 'audio triggers: got %d, expected %d' % (len(got), len(exp)))
@@ -948,7 +982,7 @@ def main():
             check(seen[ch][:n] == want[ch][:n], 'channel %d loop/terminal registers wrong: got %s want %s'
                   % (ch, [(hex(x), y) for x, y in seen[ch][:2]], [(hex(x), y) for x, y in want[ch][:2]]))
     print('  %d channel starts over %d rows match the module' % (len(got), n_rows))
-    check(mem.r16(silence) == 0x8080 if a.hunk_mem[2] != 1 or args.loader_chip else True, 'silence word is not $8080')
+    check(mem.r16(silence) == 0, 'silence word is not $0000')
 
     # ---------------------------------------------------------------- display
     print('display (frame %d)' % snap_frame)
@@ -961,7 +995,7 @@ def main():
     check(sn['diw'] == (0x2C, 0x12C), 'display window lines %s, expected (44, 300)' % (sn['diw'],))
     scr = mem.r32(a.sym('reloc_table') + 0)
     P = 10240
-    check(sn['first'].get(0x104) == 2, 'BPLCON2 is $%04X, expected 2 (far sprites behind the playfield)' % sn['first'].get(0x104, 0))
+    check(sn['first'].get(0x104) == 0x10, 'BPLCON2 is $%04X, expected $0010 (far sprites behind the playfield)' % sn['first'].get(0x104, 0))
     check(sn['ddf'][:4] == (0x30, 0xD0, 21, -2), 'display fetch setup (DDFSTRT, DDFSTOP, words, modulo) is %s' % (sn['ddf'][:4],))
     check(sn['ptr'][0] == scr - 2, 'plane 0 pointer $%X != $%X (planes start one word early)' % (sn['ptr'][0], scr - 2))
     check(sn['ptr'][2] == scr + 3 * P - 2, 'plane 2 pointer $%X != $%X' % (sn['ptr'][2], scr + 3 * P - 2))
@@ -1029,7 +1063,7 @@ def main():
     check(all(pbl[44 + 100][i] == 0x3FC for i in (2, 3, 6, 7)), 'wireframe colours (2, 3, 6, 7) differ')
     # ---- sprite ring: the eight buffers exactly, and the sprite palette
     sin_tab = [int(round(127 * math.sin(2 * math.pi * i / 256))) for i in range(256)]
-    prev_cx = equ('MID_CX') + ((sin_tab[(n - 2) & 255] * equ('WIRE_SWAY')) >> 7) if n >= 2 else equ('MID_CX')
+    prev_cx = equ('MID_CX') + ((sin_tab[spin_phase(n - 2) & 255] * equ('WIRE_SWAY')) >> 7) if n >= 2 else equ('MID_CX')
     ring = ref_ring(n - 1, prev_cx, (equ('RING_R'), equ('RING_TILT'), equ('WIRE_ZOFF'), equ('MID_CY'), equ('BALL_NEAR'), equ('BALL_MID'), equ('WIRE_D')))
     ring_bad = []
     for r_, want_ in enumerate(ring):

@@ -1,48 +1,18 @@
-# AGA Version Plan: NEON VECTORS Enhanced
+# AGA extension plan
 
-## Display Enhancements
-- **Bitplanes**: 6 planes (64 colors) instead of 4
-- **Resolution**: Stay at 320×256 PAL but with richer colors
-- **Palette**: 64 unique colors with smooth gradients
+Status: proposed, not implemented. The current release remains the four-plane
+OCS/ECS Crimson demo.
 
-## 3D & Graphics Improvements
-1. **Solid 3D Objects** (using blitter area fill)
-   - Cube with Gouraud shading (face colors based on lighting)
-   - Octahedron with per-face shading
-   - Sphere or torus with smooth lighting
+1. Detect AGA and retain the current display as a fallback.
+2. Specify the colour allocation, palette banks and compatibility register reset.
+3. Allocate and verify all DMA buffers, including every front/back plane.
+4. Implement a bounded filled-polygon renderer before adding interpolation.
+5. Add independent reference images for clipping, edge rules, depth and shading.
+6. Measure CPU and DMA cost on cycle-exact A1200 emulation; do not reuse OCS timing
+   numbers for a wider display fetch.
+7. Integrate one experimental effect at a time and verify takeover/restore on both
+   OCS/ECS and AGA paths.
 
-2. **Enhanced Sprite Ring**
-   - Larger balls (24-32px) with better shading
-   - Trail/glow effects behind balls
-   - More balls (12-16 instead of 8)
-
-3. **Background Effects**
-   - Animated gradient/plasma field
-   - Parallax scrolling layers
-   - Animated starfield in background
-
-4. **Particle Effects**
-   - Sparkles or trailing effects
-   - Energy waves
-   - Color-cycling animations
-
-## New Visual Layers
-- Logo: 64-color version with better gradients
-- Wireframe: 3D solid objects with Gouraud shading
-- Sprites: Enhanced ball ring with trails
-- Background: Parallax/animated effects
-- Scroller: Enhanced text effects
-
-## Performance Budget
-- AGA modes are same cycle cost as OCS/ECS
-- Extra bitplanes add modest DMA
-- Blitter area-fill for solid objects instead of line drawing
-- More complex Copper list for per-scanline effects
-
-## Implementation Order
-1. Update display to 6 bitplanes
-2. Regenerate logo with 64 colors
-3. Add Gouraud-shaded 3D objects
-4. Enhance sprite effects
-5. Add background animation
-6. Update Copper for new palettes/effects
+The Python lighting, glow, starfield and plasma helpers are algorithm experiments,
+not proof of an Amiga implementation. A release needs generated tables wired into
+assembly, framebuffer bounds checks and complete scene-cycle tests.

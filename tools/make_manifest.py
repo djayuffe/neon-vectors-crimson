@@ -1,34 +1,48 @@
 #!/usr/bin/env python3
-"""Write MANIFEST.sha256 for every shipped file.
-
-Build output, Python caches and vendored toolchains are not part of a release,
-so they are excluded; otherwise the manifest changes whenever somebody simply
-ran the build or the validators.
-"""
+"""Write or verify SHA-256 hashes of shipped project files, excluding build state."""
 from pathlib import Path
-import hashlib, sys
+import argparse
+import hashlib
+import sys
 
-R=Path(__file__).resolve().parents[1]
-SKIP_DIRS={'.git','build','__pycache__','vendor','tools/vendor','tools/bin','.venv','venv'}
-SKIP_SUFFIXES={'.pyc','.pyo','.o','.obj','.tmp','.bak','.orig','.rej','.DS_Store'}
-SKIP_NAMES={'MANIFEST.sha256','.DS_Store','a.out'}
-files=[]
-for p in sorted(R.rglob('*')):
-    if not p.is_file(): continue
-    parts=set(p.parts)
-    if parts & SKIP_DIRS: continue
-    if p.suffix in SKIP_SUFFIXES or p.name in SKIP_NAMES: continue
-    # Build stamps are state, not content: they are rewritten on every build.
-    if p.name.startswith('.'): continue
-    files.append(p)
-expected=[p for p in sorted((R/'tools').glob('*.py')) if p.is_file()]
-missing=[p.name for p in expected if p not in files]
-if missing:
-    print('manifest: refusing to rewrite, these tools are excluded:',', '.join(missing))
-    sys.exit(1)
-with (R/'MANIFEST.sha256').open('w') as f:
-    for p in files:
-        f.write(hashlib.sha256(p.read_bytes()).hexdigest()+'  '+p.relative_to(R).as_posix()+'\n')
-print('manifest:',len(files),'files')
-if len(sys.argv)>1 and sys.argv[1]=='-v':
-    for p in files: print('  ',p.relative_to(R).as_posix())
+ROOT = Path(__file__).resolve().parents[1]
+SKIP_DIRS = {'.git', 'build', '__pycache__', '.venv', 'venv', '.pytest_cache'}
+SKIP_NAMES = {'MANIFEST.sha256', '.DS_Store', 'a.out', '.generated'}
+SKIP_SUFFIXES = {'.pyc', '.pyo', '.o', '.obj', '.tmp', '.bak', '.orig', '.rej', '.lst'}
+
+
+def manifest(root):
+    entries = []
+    for path in sorted(root.rglob('*')):
+        rel = path.relative_to(root)
+        if path.is_symlink() or not path.is_file():
+            continue
+        if set(rel.parts[:-1]) & SKIP_DIRS or rel.parts[:2] in (('tools', 'bin'), ('tools', 'vendor')):
+            continue
+        if path.name in SKIP_NAMES or path.name.startswith('.generated-') or path.suffix in SKIP_SUFFIXES:
+            continue
+        entries.append(hashlib.sha256(path.read_bytes()).hexdigest() + '  ' + rel.as_posix() + '\n')
+    return ''.join(entries)
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--check', action='store_true', help='fail on missing/stale manifest without writing')
+    parser.add_argument('-v', action='store_true', help='print manifest entries')
+    args = parser.parse_args()
+    content = manifest(ROOT)
+    path = ROOT/'MANIFEST.sha256'
+    if args.check:
+        if not path.is_file() or path.read_text() != content:
+            print('MANIFEST FAILED: run make manifest after reviewing changes', file=sys.stderr)
+            return 1
+    else:
+        path.write_text(content)
+    print('manifest: %d files%s' % (len(content.splitlines()), ' verified' if args.check else ''))
+    if args.v:
+        print(content, end='')
+    return 0
+
+
+if __name__ == '__main__':
+    sys.exit(main())

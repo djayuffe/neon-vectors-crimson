@@ -5,35 +5,47 @@ VASMFLAGS = -m68000 -kick1hunks -Fhunkexe -nosym -I./src
 TARGET = build/neon_vectors
 SRCS = src/main.s src/hardware.i src/modplayer.s
 GEN = tools/generate_assets.py
+ASSETS = assets/logo.raw assets/font.raw assets/neon.mod assets/logo_preview.png
 # The generated assets are checked in, so they are only rebuilt when the
 # generator changes. A stamp instead of a phony per-file target keeps "make -j"
 # from running the generator while the assembler reads the files: everything
 # that needs the assets depends on this single target.
-STAMP = assets/.generated
-# Validation is a real prerequisite of the build, not just a phony alias, so a
-# failing check stops make before the assembler is invoked.
-CHECKED = build/.validated
-
+# Content fingerprints also detect generator edits sharing a timestamp.
+ASSET_KEY := $(shell $(PYTHON) -c 'import hashlib; from pathlib import Path; print(hashlib.sha256(b"".join(Path(p).read_bytes() for p in ("tools/generate_assets.py", "tools/logo_art.py"))).hexdigest()[:16])')
+STAMP := assets/.generated-$(ASSET_KEY)
 all: $(TARGET) hunkcheck
 
-$(STAMP): $(GEN)
+$(STAMP): $(GEN) tools/logo_art.py
 	@mkdir -p assets
 	$(PYTHON) $(GEN)
+	@rm -f assets/.generated assets/.generated-*
 	@touch $@
 
+# Missing assets invalidate the single producer even when its stamp exists.
+# This also prevents concurrent generator processes under make -j.
+ifneq ($(strip $(filter-out $(wildcard $(ASSETS)),$(ASSETS))),)
+.PHONY: $(STAMP)
+endif
+$(ASSETS): $(STAMP)
+	@test -f $@
+
+# A forced refresh and a concurrent build still share one asset producer.
+ifneq ($(filter assets,$(MAKECMDGOALS)),)
+.PHONY: $(STAMP)
+endif
 assets: $(STAMP)
 
-$(CHECKED): $(STAMP) $(SRCS) tools/validate.py | build
+validate: $(ASSETS)
 	$(PYTHON) tools/validate.py
-	@touch $@
-
-validate: $(CHECKED)
 
 # Proves the validator can fail: injects known faults and requires each to be
 # reported. Not part of "all", because it copies the tree and re-runs the
 # validator dozens of times.
 mutants:
 	$(PYTHON) tools/mutate.py
+
+test:
+	$(PYTHON) -m unittest discover -s tests -v
 
 verify-repro:
 	$(PYTHON) tools/verify_repro.py
@@ -53,7 +65,12 @@ manifest:
 toolchain:
 	@tools/bootstrap_vasm.sh >/dev/null
 
-$(TARGET): $(CHECKED) $(SRCS) | build
+# This small executable is always validated and assembled. Content edits within
+# one filesystem timestamp interval must not reuse an unchecked binary.
+FORCE:
+
+$(TARGET): FORCE $(ASSETS) $(SRCS) | build
+	$(PYTHON) tools/validate.py
 	@if [ -n "$(VASM)" ]; then A="$(VASM)"; elif [ -x "$(LOCAL_VASM)" ]; then A="$(LOCAL_VASM)"; else echo "No VASM. Run 'make toolchain' after supplying tools/vendor/vasm, or install vasmm68k_mot."; exit 2; fi; \
 	$$A $(VASMFLAGS) -o $@ src/main.s
 
@@ -75,6 +92,10 @@ distclean: clean
 # "clean all" in one recipe must not overlap under -j.
 .NOTPARALLEL: release
 
-release: clean all verify-repro manifest
+release:
+	$(MAKE) clean
+	$(MAKE) all
+	$(MAKE) verify-repro
+	$(MAKE) manifest
 
-.PHONY: all assets validate mutants verify-repro emutest emu-mutants manifest toolchain hunkcheck clean distclean release
+.PHONY: FORCE test all assets validate mutants verify-repro emutest emu-mutants manifest toolchain hunkcheck clean distclean release

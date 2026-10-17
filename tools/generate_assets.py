@@ -5,7 +5,11 @@ No host fonts, Pillow, timestamps, randomness without a fixed seed, or external 
 from pathlib import Path
 import math, struct, random, zlib
 ROOT=Path(__file__).resolve().parents[1]
-A=ROOT/'assets'; A.mkdir(exist_ok=True)
+import argparse
+parser = argparse.ArgumentParser(description=__doc__)
+parser.add_argument('--output', type=Path, default=ROOT/'assets', help='asset output directory')
+A = parser.parse_args().output
+A.mkdir(parents=True, exist_ok=True)
 
 # 5x7 glyphs. Lowercase is intentionally rendered as uppercase for the demo font.
 G={
@@ -97,33 +101,33 @@ png=b'\x89PNG\r\n\x1a\n'+png_chunk(b'IHDR',struct.pack('>IIBBBBB',W*scale,H*scal
 periods={}; names=['C','C#','D','D#','E','F','F#','G','G#','A','A#','B']; base=[856,808,762,720,678,640,604,570,538,508,480,453]
 for octv in range(1,5):
     for i,n in enumerate(names): periods[f'{n}{octv}']=max(113,base[i]>>(octv-1))
-def u8(v): return 0 if v<0 else 255 if v>255 else v
-# Paula plays 8 bit samples as unsigned, so every waveform is centred on 128.
-# Writing the signed value straight out (or masking it with &255) puts the
-# whole sample near full scale and produces an audible DC step in the loop.
-def pcm_sine(n=128,amp=80): return bytes(u8(128+int(amp*math.sin(2*math.pi*i/n))) for i in range(n))
-def pcm_square(n=128,amp=70): return bytes(u8(128+amp if i<n//2 else 128-amp) for i in range(n))
+def pcm(v):
+    """Encode an offset-binary synthesis value as signed Paula PCM."""
+    return max(-128, min(127, v - 128)) & 255
+# Paula samples are signed two's-complement bytes; $00 is silence.
+def pcm_sine(n=128,amp=80): return bytes(pcm(128+int(amp*math.sin(2*math.pi*i/n))) for i in range(n))
+def pcm_square(n=128,amp=70): return bytes(pcm(128+amp if i<n//2 else 128-amp) for i in range(n))
 def pcm_kick(n=512):
     out=[]; ph=0.0
     for i in range(n):
-        t=i/n; ph+=2*math.pi*(90*(1-t)+25)/8000; out.append(u8(128+int(110*math.exp(-6*t)*math.sin(ph))))
+        t=i/n; ph+=2*math.pi*(90*(1-t)+25)/8000; out.append(pcm(128+int(110*math.exp(-6*t)*math.sin(ph))))
     return bytes(out)
 def pcm_hat(n=256):
     rng=random.Random(68000)
-    return bytes(u8(128+int(90*math.exp(-5*i/n)*rng.uniform(-1,1))) for i in range(n))
-def pcm_saw(n=128,amp=72): return bytes(u8(128+int(amp*(2*i/n-1))) for i in range(n))
-def pcm_pulse(n=64,amp=62): return bytes(u8(128+amp if i<n//4 else 128-amp) for i in range(n))
-def pcm_pad(n=128,amp=64): return bytes(u8(128+int(amp*(0.7*math.sin(2*math.pi*i/n)+0.3*math.sin(4*math.pi*i/n)))) for i in range(n))
+    return bytes(pcm(128+int(90*math.exp(-5*i/n)*rng.uniform(-1,1))) for i in range(n))
+def pcm_saw(n=128,amp=72): return bytes(pcm(128+int(amp*(2*i/(n-1)-1))) for i in range(n))
+def pcm_pulse(n=64,amp=62): return bytes(pcm(128+3*amp//2 if i<n//4 else 128-amp//2) for i in range(n))
+def pcm_pad(n=128,amp=64): return bytes(pcm(128+int(amp*(0.7*math.sin(2*math.pi*i/n)+0.3*math.sin(4*math.pi*i/n)))) for i in range(n))
 def pcm_snare(n=640):
     rng=random.Random(1200)
     out=[]
     for i in range(n):
         t=i/n; env=math.exp(-5.5*t)
-        out.append(u8(128+int(105*env*(0.65*rng.uniform(-1,1)+0.35*math.sin(2*math.pi*190*i/8000)))))
+        out.append(pcm(128+int(105*env*(0.65*rng.uniform(-1,1)+0.35*math.sin(2*math.pi*190*i/8000)))))
     return bytes(out)
 def pcm_open(n=1024):
     rng=random.Random(4242)
-    return bytes(u8(128+int(70*math.exp(-2.6*i/n)*rng.uniform(-1,1))) for i in range(n))
+    return bytes(pcm(128+int(70*math.exp(-2.6*i/n)*rng.uniform(-1,1))) for i in range(n))
 # (name, data, default volume, looped)
 samples=[('SAWBASS',pcm_saw(),56,True),('PULSELEAD',pcm_pulse(),40,True),('KICK',pcm_kick(),64,False),
          ('SNARE',pcm_snare(),56,False),('HAT',pcm_hat(),28,False),('OPENHAT',pcm_open(),30,False),('PAD',pcm_pad(),34,True)]

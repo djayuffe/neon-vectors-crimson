@@ -1,3 +1,43 @@
+# Crimson audit follow-up
+
+The inherited audit below is historical. Its passing checks did not establish
+Crimson correctness: the original emulation model crashed on the added inner
+cube, and audio generation and validation shared the same incorrect unsigned-PCM
+assumption. Earlier FS-UAE observations do not validate the revised audio by ear.
+
+Current repairs include corrected single-playfield sprite priority (PF2P, `$0010`)
+and compositor ordering; coherent beam reads across vertical-bit rollover; signed Paula PCM and zero silence; balanced pulse/saw
+samples; corrected MEMF_ANY; scene-aware star and three-object reference models;
+Cxx volume expectations; a faster star hot path; strict Hunk structure/relocation
+checks; rejection of unsupported MOD semantics; isolated freshness verification;
+parallel-safe asset dependencies; isolated mutation workspaces; and strict mutation
+diagnostics. AGA rendering claims have been replaced with an explicit experiment
+status and integration plan.
+
+The test harness is still a partial hardware model. Physical-machine timing,
+Kickstart behaviour and perceptual audio acceptance remain open release checks.
+
+## Current verification (2026-10-17)
+
+- VASM 2.0f: classic 68000 executable, 3 hunks, 96,572 bytes.
+- Static validator: passes; all 33 injected source faults detected.
+- Behavioural mutation suite: all 25 injected faults detected with expected diagnostics.
+- Host regression tests: malformed/truncated Hunk and MOD inputs, helper boundaries,
+  manifest exclusions and build/asset freshness regressions.
+- Final machine-code run: 3,200 frames, covering every visual scene, the scene loop
+  and the complete 3,072-frame song loop; 768 audio starts match module data.
+  Displayed wireframe buffers match the reference on 3,198 frames.
+- Model CPU work: 94,633 cycles average, 111,804 worst. Minimum star drawing margin:
+  2,446 cycles. These optimistic measurements exclude DMA contention and blitter
+  duration; the narrow star margin requires cycle-exact hardware acceptance.
+- Loader-chip, rejected-fast-allocation and NTSC escape scenarios pass.
+- Parallel missing-asset recovery uses one producer; imported generator edits
+  invalidate assets even within one timestamp interval. Corrupted assets stop the
+  build, and reproducibility verification detects staleness without rewriting it.
+- The README screenshot was regenerated from the corrected sprite-priority model.
+
+## Historical baseline audit
+
 # Code audit
 
 Scope: every file in the repository — the three assembly sources, the Makefile, all Python
@@ -85,7 +125,7 @@ reason the source could not be assembled).
 The Copper list structure and `PatchCopper` offsets; `DIWSTRT/DIWSTOP/DDFSTRT/DDFSTOP/BPLCON0`
 for 320×256 PAL lores with three planes; the GfxBase offsets (`ActiView` 34, `copinit` 38); the
 other Exec/graphics LVOs; `Forbid` → `Disable` and `Enable` → `Permit` ordering; the MOD header
-layout and the replay core's row/period/sample decoding; the asset generator's unsigned 8-bit
+layout and the replay core's row/period/sample decoding; the asset generator's original (incorrect) unsigned 8-bit
 sample centring; the reproducibility of the generated assets.
 
 ## Addendum: graphics revision

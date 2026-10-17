@@ -1,0 +1,156 @@
+"""Regression tests for malformed executables and experimental table boundaries."""
+import random
+import struct
+import sys
+import unittest
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]/'tools'))
+import effects_aga
+import gouraud
+import hunkcheck
+
+
+def words(*values):
+    return struct.pack('>%dI' % len(values), *values)
+
+
+class HunkTests(unittest.TestCase):
+    header = words(0x3F3, 0, 1, 0, 0, 1)
+    section = words(0x3E9, 1, 0x4E754E75)
+
+    def test_valid_and_every_truncation(self):
+        binary = self.header + self.section + words(0x3F2)
+        self.assertEqual(hunkcheck.validate(binary)[0], ['code'])
+        for length in range(len(binary)):
+            with self.subTest(length=length), self.assertRaises(ValueError):
+                hunkcheck.validate(binary[:length])
+
+    def test_counted_names(self):
+        binary = (words(0x3F3, 1) + b'lib\0' + words(0, 1, 0, 0, 1, 0x3E8, 1) +
+                  b'foo\0' + self.section + words(0x3F2))
+        self.assertEqual(hunkcheck.validate(binary)[3], ['foo'])
+
+    def test_invalid_structure_and_relocations(self):
+        cases = [self.header+self.section, self.header+words(0x3F2),
+                 self.header+words(0x3E9, 2, 0, 0, 0x3F2),
+                 self.header+self.section+self.section+words(0x3F2)]
+        for target, offset in ((1, 0), (0, 1), (0, 2), (0, 4)):
+            cases.append(self.header+self.section+words(0x3EC, 1, target, offset, 0, 0x3F2))
+        for case in cases:
+            with self.subTest(binary=case), self.assertRaises(ValueError):
+                hunkcheck.validate(case)
+        hunkcheck.validate(self.header+self.section+words(0x3EC, 1, 0, 0, 0, 0x3F2))
+
+
+class EffectTests(unittest.TestCase):
+    def test_starfield_reproducibility_without_global_rng_changes(self):
+        before = random.getstate()
+        stars = effects_aga.starfield_background(32, 16)
+        self.assertEqual(before, random.getstate())
+        self.assertEqual(stars, effects_aga.starfield_background(32, 16))
+
+    def test_invalid_parameters(self):
+        for operation in (lambda: effects_aga.starfield_background(0, 10),
+                          lambda: effects_aga.starfield_background(10, 10, -1),
+                          lambda: effects_aga.plasma_effect(-1, 10),
+                          lambda: effects_aga.glow_sphere(0, 0, -1),
+                          lambda: effects_aga.color_cycle_palette([], 1),
+                          lambda: gouraud.sphere_shades(1, 8)):
+            with self.assertRaises(ValueError):
+                operation()
+
+    def test_glow_and_normalized_lighting(self):
+        self.assertEqual(effects_aga.glow_sphere(3, 4, 0), [(3, 4, 7)])
+        self.assertEqual(gouraud.vertex_shade(0, 0, 0), 0)
+        self.assertEqual(gouraud.vertex_shade(*gouraud.LIGHT), 7)
+        self.assertEqual(gouraud.vertex_shade(*(10*c for c in gouraud.LIGHT)), 7)
+        self.assertTrue(all(0 <= v <= 7 for v in gouraud.sphere_shades()))
+
+
+class AssetValidationTests(unittest.TestCase):
+    def test_malformed_and_unsupported_mods_have_diagnostics(self):
+        import shutil
+        import subprocess
+        import tempfile
+        root = Path(__file__).resolve().parents[1]
+        original = (root/'assets/neon.mod').read_bytes()
+        with tempfile.TemporaryDirectory(prefix='neon-invalid-mod-') as tmp:
+            work = Path(tmp)
+            (work/'tools').mkdir()
+            shutil.copy(root/'tools/validate.py', work/'tools/validate.py')
+            shutil.copytree(root/'src', work/'src')
+            shutil.copytree(root/'assets', work/'assets')
+            cases = [original[:100], original[:1100]]
+            fine = bytearray(original); fine[44] = 1; cases.append(fine)
+            note = bytearray(original); note[1084] &= 15; note[1086] &= 15; cases.append(note)
+            arp = bytearray(original); arp[1086] &= 0xF0; arp[1087] = 0x12; cases.append(arp)
+            unsigned = bytearray(original)
+            start = 1084 + (max(original[952:952+original[950]])+1)*1024
+            unsigned[start:] = bytes(v ^ 128 for v in unsigned[start:])
+            cases.append(unsigned)
+            for index, data in enumerate(cases):
+                with self.subTest(case=index):
+                    (work/'assets/neon.mod').write_bytes(data)
+                    result = subprocess.run([sys.executable, str(work/'tools/validate.py')],
+                                            capture_output=True, text=True)
+                    self.assertNotEqual(result.returncode, 0)
+                    self.assertIn('VALIDATION FAILED', result.stdout)
+                    self.assertNotIn('Traceback', result.stderr)
+
+    def test_manifest_excludes_toolchains_but_includes_gitignore(self):
+        import tempfile
+        import make_manifest
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            for name in ('tools/bin/assembler', 'tools/vendor/vasm/source.c', '.git/config',
+                         'build/program', 'assets/.generated', 'assets/.generated-1234', '.gitignore', 'src/main.s'):
+                path = root/name; path.parent.mkdir(parents=True, exist_ok=True); path.write_text('test')
+            names = [line.split('  ', 1)[1] for line in make_manifest.manifest(root).splitlines()]
+            self.assertEqual(names, ['.gitignore', 'src/main.s'])
+
+
+class BuildTests(unittest.TestCase):
+    def test_parallel_recovery_content_changes_and_readonly_verification(self):
+        import os
+        import shutil
+        import subprocess
+        import tempfile
+        root = Path(__file__).resolve().parents[1]
+        assembler = os.environ.get('VASM') or shutil.which('vasmm68k_mot')
+        if not assembler and (root/'tools/bin/vasmm68k_mot').is_file():
+            assembler = str(root/'tools/bin/vasmm68k_mot')
+        if not assembler or not shutil.which('make'):
+            self.skipTest('build regression needs Make and VASM')
+        with tempfile.TemporaryDirectory(prefix='neon-build-test-') as tmp:
+            work = Path(tmp)
+            for name in ('src', 'assets', 'tools'):
+                shutil.copytree(root/name, work/name,
+                                ignore=shutil.ignore_patterns('bin', 'vendor', '__pycache__'))
+            shutil.copy(root/'Makefile', work/'Makefile')
+            env = dict(os.environ, VASM=assembler, PYTHONDONTWRITEBYTECODE='1')
+
+            def run(*args):
+                return subprocess.run(args, cwd=work, env=env, capture_output=True, text=True)
+
+            def build(*goals):
+                result = run('make', '-j8', 'PYTHON='+sys.executable, *goals)
+                self.assertEqual(result.returncode, 0, result.stdout+result.stderr)
+                return result.stdout
+
+            build()
+            for name in ('logo.raw', 'font.raw', 'neon.mod', 'logo_preview.png'):
+                (work/'assets'/name).unlink()
+            self.assertEqual(build().count('tools/generate_assets.py\n'), 1)
+            with (work/'tools/logo_art.py').open('a') as stream:
+                stream.write('\n# Content dependency regression, without a timestamp delay.\n')
+            self.assertEqual(build().count('tools/generate_assets.py\n'), 1)
+            self.assertEqual(build('assets', 'all').count('tools/generate_assets.py\n'), 1)
+            font = work/'assets/font.raw'
+            font.write_bytes(b'broken')
+            result = run('make', '-j8', 'PYTHON='+sys.executable)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn('font size', result.stdout)
+            result = run(sys.executable, 'tools/verify_repro.py')
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn('stale', result.stderr)
+            self.assertEqual(font.read_bytes(), b'broken')

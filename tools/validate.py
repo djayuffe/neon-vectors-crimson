@@ -22,8 +22,12 @@ if len(mod)>=1084:
     for i in range(31):
         o=20+i*30; ln=int.from_bytes(mod[o+22:o+24],'big'); vol=mod[o+25]
         ls=int.from_bytes(mod[o+26:o+28],'big'); ll=int.from_bytes(mod[o+28:o+30],'big')
+        check(mod[o+24]==0,f'sample {i+1}: finetune is unsupported')
         check(vol<=64,f'sample {i+1} volume {vol} > 64')
         if ln: check(ls+ll<=ln or ll<=1,f'sample {i+1} loop exceeds sample')
+    if errors:
+        print('VALIDATION FAILED\n' + '\n'.join(' - ' + e for e in errors))
+        sys.exit(1)
     # validate pattern sample numbers and periods
     for p in range(pats):
         base=1084+p*1024
@@ -32,6 +36,10 @@ if len(mod)>=1084:
             smp=(b0&0xf0)|(b2>>4); per=((b0&0xf)<<8)|b1
             check(smp<=31,f'pattern {p} event {e}: sample {smp}')
             check(per==0 or 113<=per<=856,f'pattern {p} event {e}: period {per}')
+            check(not per or smp != 0,f'pattern {p} event {e}: period-only notes are unsupported')
+            if per and 1 <= smp <= 31:
+                check(int.from_bytes(mod[20+(smp-1)*30+22:20+(smp-1)*30+24], 'big') > 0,
+                      f'pattern {p} event {e}: note uses an empty sample')
 if errors:
     print('VALIDATION FAILED')
     for x in errors: print(' -',x)
@@ -125,6 +133,8 @@ if len(mod)>=1084:
             fx=b2&0x0f
             if fx or b3:
                 check(fx in supported_fx,f'pattern {p} event {e}: unsupported effect {fx:X}{b3:02X}')
+                if fx==0:
+                    check(b3==0,f'pattern {p} event {e}: arpeggio effect is unsupported')
                 if fx==0xF:
                     check(1<=b3<=31,f'pattern {p} event {e}: unsupported BPM/zero F{b3:02X}')
 
@@ -320,7 +330,7 @@ check(equvals.get('DMAF_AUDIO')==0x000F and equvals.get('DMAF_COPPER')==0x0080 a
       and equvals.get('DMAF_MASTER')==0x0200 and equvals.get('DMAF_BLITTER')==0x0040 and equvals.get('DMAF_DISK')==0x0010
       and equvals.get('DMAF_SPRITE')==0x0020 and equvals.get('DMAF_BLITHOG')==0x0400 and equvals.get('DMAF_SYSTEM')==0x07F0,
       'DMAF bit assignments are wrong for OCS/ECS (hardware/dmabits.h)')
-check(equvals.get('MEMF_CHIP')==0x0002 and equvals.get('MEMF_ANY')==0x8000,'MEMF constants are wrong')
+check(equvals.get('MEMF_CHIP')==0x0002 and equvals.get('MEMF_ANY')==0,'MEMF constants are wrong')
 check(equvals.get('LVO_LoadView')==-222 and equvals.get('LVO_WaitTOF')==-270 and equvals.get('LVO_OwnBlitter')==-456
       and equvals.get('LVO_DisownBlitter')==-462 and equvals.get('LVO_AllocMem')==-198 and equvals.get('LVO_TypeOfMem')==-534,
       'graphics/Exec library offsets are wrong')
@@ -335,7 +345,7 @@ check(re.search(r'LVO_TypeOfMem\(a6\)',_alloc) is not None
       'the chip memory check must happen before the payload is copied')
 check(re.search(r'jsr\s+LVO_FreeMem',_alloc) is not None,
       'a non-chip allocation must be released with FreeMem rather than leaked')
-check(equvals.get('SILENCE_WORD')==0x8080,'SILENCE_WORD must be $8080 (unsigned 8 bit silence)')
+check(equvals.get('SILENCE_WORD')==0,'SILENCE_WORD must be $0000 (signed 8-bit silence)')
 
 
 # The library base must be in a6 (AmigaOS calling convention). Kickstart's Exec never reads
@@ -405,22 +415,20 @@ check(equvals.get('LVO_CopyMem')==-624 and equvals.get('LVO_FreeMem')==-210 and 
       'Exec LVO offsets for memory/copy/scheduling calls are wrong')
 
 # --- audio sample sanity ----------------------------------------------------
-# Paula plays 8 bit samples as unsigned, so a correct waveform is centred on
-# 128. Masking a signed wave with &255 pins it near full scale and clicks on
-# every loop point, and a hat that never decays never sounds like a hat.
+# Decode signed PCM before measuring DC offset, steps and decay.
 import math
-def rms(d): return math.sqrt(sum((v-128)**2 for v in d)/len(d)) if d else 0.0
+def rms(d): return math.sqrt(sum(v**2 for v in d)/len(d)) if d else 0.0
 if len(mod)>=1084:
     off=1084+pats*1024
     for i in range(31):
         o=20+i*30; name=mod[o:o+22].split(b'\0')[0].decode('latin-1').strip()
         ln=int.from_bytes(mod[o+22:o+24],'big')*2; ls=int.from_bytes(mod[o+26:o+28],'big')*2
         if not ln: continue
-        d=mod[off+ls:off+ls+ln]
+        d=[v if v < 128 else v-256 for v in mod[off:off+ln]]
         check(len(d)==ln,f'sample {i+1} {name!r}: data truncated at {len(d)} of {ln} bytes')
         if not d: continue
         mean=sum(d)/len(d)
-        check(96<=mean<=160,f'sample {i+1} {name!r}: mean {mean:.1f} is not centred on 128 (signed data written raw?)')
+        check(abs(mean)<=8,f'sample {i+1} {name!r}: signed PCM mean {mean:.1f} is not centred on zero')
         if name in ('LEAD','KICK'):
             step=max(abs(d[j]-d[j-1]) for j in range(1,len(d)))
             check(step<=64,f'sample {i+1} {name!r}: {step} sample step suggests a DC jump')

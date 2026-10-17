@@ -1,13 +1,7 @@
 #!/usr/bin/env python3
-"""Gouraud-shaded 3D solid object rendering for AGA version.
+"""Experimental Lambert lighting tables; not integrated into the demo renderer.
 
-Generates vertex lighting values for flat-shaded 3D objects. A cube and sphere
-are lit from a fixed direction; each face gets a base colour that's shaded
-based on its normal's dot product with the light direction. The result is
-written as a lookup table (vertex -> shading level 0-7) that the 68k code
-uses to pick the final colour for each face.
-
-The generated tables are pasted into src/main.s and used by DrawSolid.
+These helpers compute face/vertex light levels, not Gouraud rasterization.
 """
 import math
 
@@ -17,7 +11,10 @@ LIGHT = tuple(c / n for c in LIGHT)
 
 def vertex_shade(nx, ny, nz):
     """Face normal -> shading level 0 (dark) to 7 (bright) based on lighting."""
-    lam = max(0, nx * LIGHT[0] + ny * LIGHT[1] + nz * LIGHT[2])  # clamped dot product
+    length = math.sqrt(nx*nx + ny*ny + nz*nz)
+    if not length:
+        return 0
+    lam = min(1, max(0, (nx * LIGHT[0] + ny * LIGHT[1] + nz * LIGHT[2]) / length))  # clamped dot product
     return int(round(lam * 7))  # 0..7
 
 def cube_faces():
@@ -38,6 +35,8 @@ def sphere_shades(rings=8, segments=8):
     """Sphere: generate shading for a regular grid of vertices.
     Returns list of shading values 0..7 per vertex.
     """
+    if rings < 2 or segments < 3:
+        raise ValueError("at least two rings and three segments required")
     shades = []
     for r in range(rings):
         lat = math.pi * r / (rings - 1)  # latitude: 0 (north) to pi (south)

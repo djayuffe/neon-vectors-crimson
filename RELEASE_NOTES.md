@@ -1,5 +1,28 @@
 # Release notes
 
+## Crimson correctness and tooling revision
+
+- Correct single-playfield sprite priority in hardware and the reference renderer.
+- Retry torn beam reads across vertical high-bit changes.
+- Correct Paula signed PCM, zero silence and pulse/saw DC balance.
+- Cover all eight scenes, all three wireframes and Cxx volume accents in the
+  independent machine-code reference test.
+- Optimize the 64-star drawing hot path with cached speed, row offsets and simpler
+  masks and brightness dispatch.
+- Validate Hunk extents, section endings, names and relocation boundaries; reject
+  unsupported MOD events before playback.
+- Verify asset freshness without modifying shipped files; repair build dependencies,
+  parallel regeneration, ordered releases and toolchain-directory safety.
+- Add host regressions and isolated, diagnostic-aware mutation tests.
+- Replace contradictory feature descriptions with the actual OCS/ECS implementation
+  and clearly separate the unintegrated AGA experiments.
+
+## Historical baseline revisions
+
+The entries below describe earlier versions. Their timing figures and acceptance
+claims are not current Crimson measurements.
+
+
 ## Effects revision
 
 - **Wavy logo:** each logo row has its own `BPLCON1` scroll move in the Copper list, rewritten every

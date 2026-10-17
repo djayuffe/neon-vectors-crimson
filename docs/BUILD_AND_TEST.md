@@ -1,63 +1,64 @@
-# Build and test matrix
+# Build and release checks
 
-## What is verified
-
-| Check | Command | Status |
-| --- | --- | --- |
-| Asset semantics + 68000 source rules | `make validate` | passes |
-| Asset determinism | `make verify-repro` | passes |
-| Validator self-test | `make mutants` | 33/33 injected faults caught |
-| 68000 assembly | `make` | assembles with VASM 2.0f, no errors |
-| Hunk executable structure | `make` (`hunkcheck.py`) | valid; 3 hunks (code, data, chip data) |
-| Behaviour on an emulated 68000 | `make emutest` | passes (PAL, `--loader-chip`, `--alloc-fast`, `--ntsc`) |
-| Emulation-test self-test | `make emu-mutants` | 25/25 injected faults caught, after an unmodified baseline run passes |
-| Cycle-exact emulator | FS-UAE, A500 config, AROS ROM | runs, animates, exits cleanly; audio not audited by ear |
-| Genuine Kickstart ROM | FS-UAE / WinUAE / Amiberry | **not run** |
-| Real PAL OCS/ECS machine | — | **not run** |
-
-## Host-side
+## Host checks
 
 ```sh
-make            # assets -> validate -> assemble -> hunk check
-make mutants
-make emutest    # needs: pip install machine68k
-make emu-mutants  # slow: one emulated run per injected fault
-make release    # clean, build, reproducibility, manifest
+make -j4                   # assets, validation, assembly, Hunk structure
+make test                  # host regressions, including malformed inputs
+make mutants               # static validator self-test
+make verify-repro          # deterministic generation and shipped-asset freshness
+python3 tools/make_manifest.py --check
 ```
 
-`make` needs `vasmm68k_mot` on `PATH`, in `tools/bin/` (`make toolchain`), or via `VASM=`.
-`-kick1hunks` emits classic Kickstart-compatible hunks (no 16-bit relocations; 32-bit PC-relative
-relocations are rejected), which is why all data is addressed absolutely rather than with `(pc)`.
+Python 3.8+ and Make are required. VASM may come from PATH, `tools/bin/vasmm68k_mot`,
+or `VASM=/absolute/path`. The bootstrap accepts an existing `VASM_SRC` tree and
+never deletes it. Build flags restrict output to classic 68000/Kickstart hunks.
 
-The emulation test additionally runs:
+`make assets` forces regeneration. Ordinary builds fingerprint both generator files by content and track
+all asset files, including missing assets. Validation runs before assembly; a
+changed asset is checked before assembly. This small executable is validated and
+assembled on every build so edits sharing a coarse filesystem timestamp cannot
+reuse an unchecked binary. `make release` runs clean,
+build, reproducibility and manifest in order, including when invoked with `-j`.
+
+## Machine-code checks
+
+Install the optional Musashi binding with `python3 -m pip install machine68k`.
 
 ```sh
-python3 tools/emu_test.py --frames 1700 --snap 1500   # a full song loop
-python3 tools/emu_test.py --alloc-fast                 # chip allocation fails: must exit 20, leak nothing
-python3 tools/emu_test.py --loader-chip                # loader honours the chip flag
-python3 tools/emu_test.py --ntsc --frames 100          # 262-line frame: must not hang
-python3 tools/emu_test.py --png docs/screenshot.png    # refresh the README image
+python3 tools/emu_test.py --frames 3200 --snap 1850  # all scenes and full song loop
+python3 tools/emu_test.py --loader-chip             # loader places DMA hunk in chip RAM
+python3 tools/emu_test.py --alloc-fast              # reject non-chip allocation; exit 20
+python3 tools/emu_test.py --ntsc --frames 100        # PAL wait must not hang on NTSC
+python3 tools/emu_test.py --png docs/screenshot.png  # refresh rendered preview
+make emu-mutants                                    # slow; baseline must pass first
 ```
 
-## Emulator acceptance checklist (still to do)
+Each mutation runs in an isolated temporary checkout. A failure is accepted only
+when the harness emits the expected diagnostic; an unrelated Python crash is not
+evidence that the injected fault was detected.
 
-Use an A500-class PAL configuration: 68000, OCS or ECS, 512 KiB+ chip RAM, **cycle-exact**
-chipset emulation. Start from a Shell and run `neon_vectors`, then confirm:
+Current audit results and remaining acceptance limits are recorded in
+[AUDIT.md](AUDIT.md). Timing printed by the harness counts CPU instructions and
+omits DMA stealing and blitter duration. It is not a cycle-exact performance proof.
 
-- [ ] logo is stable and unclipped; raster band animates without Copper corruption
-- [ ] the starfield flies outward from the centre in three brightnesses; no trails or flicker; wireframe stays in front of the stars
-- [ ] scroller moves left smoothly and inserts clean columns; text wraps at the end
-- [ ] all four channels audible; drums retrigger; no persistent buzz after a one-shot; no noise burst at start
-- [ ] the wireframe cube and octahedron rotate and sway smoothly with no half-drawn frames; all edges solid
-- [ ] the logo ripples smoothly with no torn or jumping rows; the four floor bars glide without flicker
-- [ ] no visible tearing in the starfield or scroller (per-frame work ≈ 77 k cycles average, 84 k worst, of ≈ 142 k)
-- [ ] the screen edges are clean: the extra fetch word must not show a stripe at the left edge
-- [ ] left mouse button exits; the previous display returns; the system keeps running
-- [ ] run it repeatedly: memory is returned each time (check `avail`)
+## Hardware/emulator acceptance
 
-For a physical-machine release also run on a real PAL OCS/ECS Amiga (A500/A600/A1200).
+Use a PAL A500-class 68000/OCS or ECS configuration with enough free chip RAM.
+Supply a legal ROM or an appropriate replacement ROM. Start `neon_vectors` from
+a Shell, then check:
 
-## Scope
+- Logo scroll, gradients, stars and text are stable and unclipped, including the
+  extra fetch word at the left edge and Copper waits after display line 255.
+- All eight sections play and repeat after about 41 seconds. Object edges remain
+  solid and the sprite ring respects depth priority.
+- All seven instruments sound intentional; drums retrigger and end without a
+  sustained buzz. Listen across the full 61.44-second song loop.
+- No tearing appears under cycle-exact DMA contention, especially in the stars.
+- Left click restores the prior display and Shell. Repeated runs return memory
+  (`avail`) and leave the system usable.
 
-This is a PAL cracktro, not a universal PAL/NTSC application and not a general ProTracker replay
-library. `vamos` is not a valid runtime test for it: it does not emulate the custom chips.
+Genuine Kickstart and physical PAL OCS/ECS acceptance remain to be performed for
+this revision. Historical FS-UAE observations are not fresh validation of changed
+audio or beam timing. NTSC support and the proposed AGA renderer are not release
+features.

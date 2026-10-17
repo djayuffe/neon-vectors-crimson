@@ -9,7 +9,8 @@ import shutil, subprocess, sys, tempfile
 from pathlib import Path
 
 R = Path(__file__).resolve().parents[1]
-M = Path(tempfile.gettempdir()) / 'neon_vectors_emumut'
+_workspace = tempfile.TemporaryDirectory(prefix='neon-emu-')
+M = Path(_workspace.name) / 'repo'
 
 MUTANTS = [
     ('octant table: two entries swapped', 'src/main.s',
@@ -69,7 +70,7 @@ def populate():
         shutil.rmtree(M)
     M.mkdir(parents=True)
     for d in ('src', 'tools', 'assets'):
-        shutil.copytree(R / d, M / d, ignore=shutil.ignore_patterns('bin', '__pycache__'))
+        shutil.copytree(R / d, M / d, ignore=shutil.ignore_patterns('bin', 'vendor', '__pycache__'))
     bin_dir = R / 'tools/bin'
     if bin_dir.exists():
         shutil.copytree(bin_dir, M / 'tools/bin')
@@ -90,8 +91,8 @@ def run(name, rel, old, new, expect):
     if p.returncode == 0:
         print(f'{name:<50} NOT CAUGHT'); return False
     fails = [l.strip() for l in out.splitlines() if l.strip().startswith('FAIL')]
-    if expect and not any(expect.lower() in l.lower() for l in fails) and 'Traceback' not in out:
-        print(f'{name:<50} caught, but without "{expect}": {fails[:1]}'); return True
+    if not fails or (expect and not any(expect.lower() in l.lower() for l in fails)):
+        print(f'{name:<50} caught, but without "{expect}": {fails[:1]}'); return False
     print(f'{name:<50} caught: {(fails[0] if fails else out.splitlines()[-1])[:70]}')
     return True
 

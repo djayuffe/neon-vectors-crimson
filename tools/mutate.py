@@ -4,14 +4,15 @@ import shutil, subprocess, sys, tempfile
 from pathlib import Path
 
 R = Path(__file__).resolve().parents[1]
-M = Path(tempfile.gettempdir()) / 'neon_vectors_mut'
+_workspace = tempfile.TemporaryDirectory(prefix='neon-static-')
+M = Path(_workspace.name) / 'repo'
 
 def reset():
     if M.exists():
         shutil.rmtree(M)
     M.mkdir(parents=True)
     for d in ('src', 'tools', 'assets'):
-        shutil.copytree(R / d, M / d)
+        shutil.copytree(R / d, M / d, ignore=shutil.ignore_patterns('bin', 'vendor', '__pycache__'))
 
 def run():
     p = subprocess.run([sys.executable, str(M / 'tools/validate.py')], capture_output=True, text=True)
@@ -50,8 +51,8 @@ results.append(M_('Enable/Permit swapped', 'src/main.s',
     '        jsr     LVO_Permit(a6)\n        jsr     LVO_Enable(a6)', 'Enable before Permit'))
 results.append(M_('PatchCopper writes register word', 'src/main.s',
     'move.w  d0,6(a1)', 'move.w  d0,4(a1)', 'PatchCopper'))
-results.append(M_('silence word 0 instead of 8080', 'src/main.s',
-    'SILENCE_WORD    EQU $8080', 'SILENCE_WORD    EQU 0', 'SILENCE_WORD'))
+results.append(M_('silence word 8080 instead of zero', 'src/main.s',
+    'SILENCE_WORD    EQU $0000', 'SILENCE_WORD    EQU $8080', 'SILENCE_WORD'))
 results.append(M_('undefined symbol typo', 'src/main.s',
     'bsr     ClearScreen', 'bsr     ClearScreeen', 'undefined symbol'))
 results.append(M_('undefined local label', 'src/main.s',

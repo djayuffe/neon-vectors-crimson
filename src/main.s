@@ -4,10 +4,10 @@ SCREEN_W_BYTES  EQU 40
 SCREEN_H        EQU 256
 PLANE_SIZE      EQU SCREEN_W_BYTES*SCREEN_H
 PLANE_LONGS     EQU PLANE_SIZE/4
-SCREEN_LONGS    EQU PLANE_LONGS*6   ; 6 planes for 64-colour AGA
+SCREEN_LONGS    EQU PLANE_LONGS*6   ; four display planes, two of them double-buffered
 CHIPDATA_SIZE   EQU chipdata_end-chipdata_begin
 FRAME_SYNC_LINE EQU 300     ; first line below the display window (DIWSTOP = line 300)
-SILENCE_WORD    EQU $8080   ; 8 bit Paula silence is unsigned $80, not 0
+SILENCE_WORD    EQU $0000   ; Paula uses signed 8-bit PCM: zero is silence
 
 ; Screen layout (lines are screen rows; display line = row + 44).
 LOGO_Y          EQU 8       ; 64 line logo band
@@ -285,15 +285,24 @@ AllocChipMem:
 ; ---------------------------------------------------------------------------
 ; Beam position helpers.
 ;
-; VPOSR and VHPOSR are adjacent, so one long read returns both in a single bus
-; access and cannot straddle a line change. VPOSR bit0 is V8 (long bit 16) and
-; VHPOSR bits 15-8 are V7..V0, so after a shift by eight the low nine bits are
-; the PAL line number. a6 must be CUSTOM. Only d0 is clobbered.
+; A 68000 longword read uses two bus cycles. Re-read VPOSR after the pair
+; and retry if V8 changed, avoiding a torn line at the 255/256 boundary or
+; frame wrap. Preserve d1 because WaitLines uses it across calls.
+; a6 must be CUSTOM. Only d0 is clobbered.
 ; ---------------------------------------------------------------------------
 BeamLine:
+        move.l  d1,-(sp)
+.retry:
         move.l  VPOSR(a6),d0
+        move.w  VPOSR(a6),d1
+        swap    d0
+        eor.w   d0,d1
+        btst    #0,d1
+        bne     .retry
+        swap    d0
         lsr.l   #8,d0
         andi.w  #$01FF,d0
+        move.l  (sp)+,d1
         rts
 
 ; Sync to the first line below the display window, once per frame. The loop
@@ -511,7 +520,7 @@ UpdateRaster:
         rts
 
 ; ---------------------------------------------------------------------------
-; 3D starfield. Each star is (x, y, z); z falls by ZSPEED per frame and the star
+; 3D starfield. Each star is (x, y, z); z falls by the current scene speed per frame and the star
 ; is projected as screen = centre + coordinate * PROJ_F / z, so near stars move
 ; faster and further from the centre than far ones. When z reaches ZMIN the star
 ; is sent to the back with a new x and y.
@@ -586,10 +595,12 @@ UpdateStars:
 
         lea     stars,a2
         lea     recip_star,a3
+        movea.w sec_zspeed,a5              ; cache scene speed outside the star loop
+        lea     row_offsets,a4
         moveq   #NSTARS-1,d7
 .dr:
         move.w  4(a2),d3
-        sub.w   sec_zspeed,d3
+        sub.w   a5,d3
         cmp.w   #ZMIN,d3
         bge     .zok
         addi.w  #ZRANGE,d3                 ; back to the far end, new lane
@@ -622,36 +633,32 @@ UpdateStars:
         subi.w  #MID_Y0,d2
         cmp.w   #MID_H,d2
         bhs     .skip
-        mulu    #SCREEN_W_BYTES,d1
+        add.w   d1,d1
+        move.w  0(a4,d1.w),d1              ; y * 40 from a word-offset table
         move.w  d0,d2
         lsr.w   #3,d2
         add.w   d2,d1                      ; byte offset of the star
         move.w  d1,6(a2)
         andi.w  #7,d0
-        moveq   #7,d2
-        sub.w   d0,d2                      ; bit number, MSB first
-        moveq   #1,d4
-        lsl.b   d2,d4                      ; mask
+        moveq   #-128,d4
+        lsr.b   d0,d4                      ; MSB-first pixel mask
         move.b  d4,8(a2)
-        moveq   #3,d5                      ; near
-        cmp.w   #ZNEAR,d3
-        ble     .cls
-        moveq   #2,d5                      ; mid
+        moveq   #1,d5                      ; far: plane 2 only
         cmp.w   #ZMID,d3
-        ble     .cls
-        moveq   #1,d5                      ; far
-.cls:
-        move.b  d5,9(a2)
-        btst    #0,d5
-        beq     .d0
+        bgt     .far
+        moveq   #2,d5                      ; mid: plane 0 only
+        cmp.w   #ZNEAR,d3
+        bgt     .mid
+        moveq   #3,d5                      ; near: both star planes
         or.b    d4,0(a1,d1.w)
-.d0:
-        btst    #1,d5
-        beq     .dnext
+.mid:
         or.b    d4,0(a0,d1.w)
-        bra     .dnext
+        bra     .remember
+.far:
+        or.b    d4,0(a1,d1.w)
+.remember:
+        move.b  d5,9(a2)
 .skip:
-        clr.b   9(a2)
 .dnext:
         lea     STAR_SIZE(a2),a2
         dbra    d7,.dr
@@ -1480,6 +1487,25 @@ scroll_text:
         dc.b "   UBER CRACKING SERVICE PRESENTS: NEON VECTORS CRIMSON - A RED HOT 68000 CRACKTRO VARIANT - 3D WIREFRAME VECTORS - DEPTH STARFIELD - COPPER GRADIENTS - FOUR CHANNEL PAULA MOD - GREETINGS TO EVERYONE STILL MAKING THE OLD MACHINES SING!   ",0
         even
 
+; Byte offset of each display row; used in the time-critical star loop.
+row_offsets:
+        dc.w 0,40,80,120,160,200,240,280,320,360,400,440,480,520,560,600
+        dc.w 640,680,720,760,800,840,880,920,960,1000,1040,1080,1120,1160,1200,1240
+        dc.w 1280,1320,1360,1400,1440,1480,1520,1560,1600,1640,1680,1720,1760,1800,1840,1880
+        dc.w 1920,1960,2000,2040,2080,2120,2160,2200,2240,2280,2320,2360,2400,2440,2480,2520
+        dc.w 2560,2600,2640,2680,2720,2760,2800,2840,2880,2920,2960,3000,3040,3080,3120,3160
+        dc.w 3200,3240,3280,3320,3360,3400,3440,3480,3520,3560,3600,3640,3680,3720,3760,3800
+        dc.w 3840,3880,3920,3960,4000,4040,4080,4120,4160,4200,4240,4280,4320,4360,4400,4440
+        dc.w 4480,4520,4560,4600,4640,4680,4720,4760,4800,4840,4880,4920,4960,5000,5040,5080
+        dc.w 5120,5160,5200,5240,5280,5320,5360,5400,5440,5480,5520,5560,5600,5640,5680,5720
+        dc.w 5760,5800,5840,5880,5920,5960,6000,6040,6080,6120,6160,6200,6240,6280,6320,6360
+        dc.w 6400,6440,6480,6520,6560,6600,6640,6680,6720,6760,6800,6840,6880,6920,6960,7000
+        dc.w 7040,7080,7120,7160,7200,7240,7280,7320,7360,7400,7440,7480,7520,7560,7600,7640
+        dc.w 7680,7720,7760,7800,7840,7880,7920,7960,8000,8040,8080,8120,8160,8200,8240,8280
+        dc.w 8320,8360,8400,8440,8480,8520,8560,8600,8640,8680,8720,8760,8800,8840,8880,8920
+        dc.w 8960,9000,9040,9080,9120,9160,9200,9240,9280,9320,9360,9400,9440,9480,9520,9560
+        dc.w 9600,9640,9680,9720,9760,9800,9840,9880,9920,9960,10000,10040,10080,10120,10160,10200
+
 raster_colors:
         dc.w $102,$203,$304,$405,$506,$607,$708,$819
         dc.w $92A,$A3B,$B4C,$C5D,$D6E,$E7F,$D6E,$C5D
@@ -1672,7 +1698,7 @@ chipdata_begin:
 copper:
         dc.w DIWSTRT,$2C81,DIWSTOP,$2CC1
         dc.w DDFSTRT,$0030,DDFSTOP,$00D0   ; one extra word per line (BPLCON1 scroll), see BPLxMOD
-        dc.w BPLCON0,$4200,BPLCON1,$0000,BPLCON2,$0002   ; 4 bitplanes; sprites 4-7 (the far balls) go behind the playfield
+        dc.w BPLCON0,$4200,BPLCON1,$0000,BPLCON2,$0010   ; single playfield uses PF2P bits 5..3; 4 bitplanes; sprites 4-7 (the far balls) go behind the playfield
         dc.w BPL1MOD,$FFFE,BPL2MOD,$FFFE   ; 21 words fetched, 20 words per line: step back 2 bytes
 cop_bpl1:
         dc.w BPL1PTH,0,BPL1PTL,0
@@ -1851,7 +1877,7 @@ screen:     ds.b PLANE_SIZE*6   ; plane 0 | plane 1 buffers 0,1 | plane 2 | plan
 logo_data:  incbin "assets/logo.raw"
 font_data:  incbin "assets/font.raw"
         even
-audio_silence: dc.w SILENCE_WORD  ; unsigned 8 bit silence, not 0
+audio_silence: dc.w SILENCE_WORD  ; signed 8-bit silence
 mod_data:   incbin "assets/neon.mod"
         even
 chipdata_end:

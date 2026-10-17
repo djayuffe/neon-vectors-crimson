@@ -1,6 +1,7 @@
 # build output and make stamps
 build/
 assets/.generated
+assets/.generated-*
 
 # assembler scratch files produced by running vasm by hand from the root
 a.out

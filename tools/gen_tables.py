@@ -241,8 +241,15 @@ def aga_palette():
 
 
 if __name__ == '__main__':
-    print({'copper': copper, 'sintab': sintab, 'recip_star': recip_star, 'recip_wire': recip_wire,
+    import argparse
+    parser = argparse.ArgumentParser(description=__doc__)
+    tables = {'copper': copper, 'sintab': sintab, 'recip_star': recip_star, 'recip_wire': recip_wire,
            'floor_base': lambda: words(floor_base()), 'bar_colors': lambda: words(bar_colors(), 8),
            'wave_tab': lambda: words(wave_tab()), 'palette': header_palette,
            'balls': lambda: words(balls(), 8), 'spr_palette': spr_palette,
-           'ring_tab': lambda: '\n'.join('        dc.w ' + ','.join('%d' % v for v in ring_tab()[i:i + 16]) for i in range(0, 512, 16))}[sys.argv[1]]())
+           'ring_tab': lambda: '\n'.join('        dc.w ' + ','.join('%d' % v for v in ring_tab()[i:i + 16]) for i in range(0, 512, 16)),
+           'aga_palette': lambda: words(aga_palette(), 8),
+           'row_offsets': lambda: words([y * 40 for y in range(256)], 16)}
+    parser.add_argument('table', choices=sorted(tables))
+    args = parser.parse_args()
+    print(tables[args.table]())
