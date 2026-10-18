@@ -429,6 +429,12 @@ if len(mod)>=1084:
         if not d: continue
         mean=sum(d)/len(d)
         check(abs(mean)<=8,f'sample {i+1} {name!r}: signed PCM mean {mean:.1f} is not centred on zero')
+        loop_words=int.from_bytes(mod[o+28:o+30], 'big')
+        if loop_words<=1:
+            check(d[0]==0 and d[-1]==0,f'sample {name!r}: one-shot must start and end at zero')
+        elif name in ('SAWBASS','PULSELEAD','PAD'):
+            step=max(abs(d[j]-d[j-1]) for j in range(len(d)))
+            check(step<=40,f'sample {name!r}: loop sample step {step} exceeds 40')
         if name in ('LEAD','KICK'):
             step=max(abs(d[j]-d[j-1]) for j in range(1,len(d)))
             check(step<=64,f'sample {i+1} {name!r}: {step} sample step suggests a DC jump')

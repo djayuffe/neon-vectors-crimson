@@ -1,5 +1,13 @@
 # Release notes
 
+## Effects, graphics and music polish
+
+- Layered logo ripple, rose/copper subtitle, ember floor and bright bar cores.
+- Ember-to-gold pulse below the logo, checked against its exact frame phase.
+- Direct wave indexing and precomputed bar motion reduce frame-update work.
+- Smoother bass and lead loops, tapered percussion, chime voice, phrase dynamics,
+  quiet lead echoes and a distinct sixth pattern for the finale.
+
 ## Startup failure verification
 
 - Inject graphics.library open failure and NULL memory allocation independently.

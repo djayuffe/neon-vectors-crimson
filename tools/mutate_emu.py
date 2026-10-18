@@ -32,7 +32,7 @@ MUTANTS = [
     ('Copper wrap below line 255 missing', 'src/main.s',
      '        dc.w $FFDF,$FFFE                    ; wrap: lines below are 256 + WAIT line\n', '', 'Copper wrap'),
     ('wavy logo: wrong row phase step', 'src/main.s',
-     '        addq.w  #3,d4\n        dbra    d7,.w', '        addq.w  #4,d4\n        dbra    d7,.w', 'wavy logo'),
+     '        addq.w  #6,d0                      ; three entries per logo row', '        addq.w  #8,d0                      ; wrong row phase', 'wavy logo'),
     ('wave never reset after the logo', 'src/main.s',
      '        dc.w BPLCON1,$0000\n', '', 'BPLCON1'),
     ('display modulo wrong (extra fetch word not skipped)', 'src/main.s',

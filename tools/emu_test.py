@@ -1130,9 +1130,8 @@ def main():
     got_rows = [pbl[44 + FY0 + i][0] for i in range(FH)]
     check(got_rows == rows, 'floor bar rows (below display line 255, after the Copper wrap) differ: first %s' %
           [(i, hex(g), hex(w)) for i, (g, w) in enumerate(zip(got_rows, rows)) if g != w][:2])
-    pal = [0x102,0x203,0x304,0x405,0x506,0x607,0x708,0x819,0x92A,0xA3B,0xB4C,0xC5D,0xD6E,0xE7F,0xD6E,0xC5D,
-           0xB4C,0xA3B,0x92A,0x819,0x708,0x607,0x506,0x405,0x304,0x203,0x102,0x213,0x324,0x435,0x546,0x657]
-    check(pbl[44 + 73][0] in pal, 'raster slot colour $%03X is not from the colour table' % pbl[44 + 73][0])
+    check(pbl[44 + 73][0] == gen_tables.raster_palette()[f & 31],
+          'raster pulse differs from the expected ember-to-gold phase')
     print('  wireframe buffer verified on each of %d frames' % wire_frames[0])
     if ok0 and ok1 and ok2 and ok3 and not wire_fail:
         print('  logo, %d stars, scroller and the %d-edge wireframe (%d pixels) match the reference models exactly'

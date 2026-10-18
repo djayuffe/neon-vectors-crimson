@@ -1,8 +1,8 @@
 # Music and Paula
 
-`assets/neon.mod` is a deterministic four-channel, 31-slot `M.K.` module. Seven
-slots are populated: saw bass, pulse lead, kick, snare, closed hat, open hat and pad.
-Five patterns follow order `0,1,2,1,3,2,4,4`, built around Am–F–C–G. At speed six,
+`assets/neon.mod` is a deterministic four-channel, 31-slot `M.K.` module. Eight
+slots are populated: saw bass, pulse lead, kick, snare, closed hat, open hat, pad and chime.
+Six patterns follow order `0,1,2,1,3,2,4,5`, built around Am–F–C–G. At speed six,
 512 rows last 3,072 PAL frames (61.44 seconds), independently of the visual loop.
 
 ## Sample format
@@ -38,3 +38,22 @@ AUDxLEN means 65,536 words, so the player always uses at least one word.
 The behavioural harness compares each DMA start and reload against module data,
 including `Cxx` overrides. Teardown disables audio DMA and clears volumes rather
 than resuming another client’s DMA against changed sample registers.
+
+## Arrangement and timbre revision
+
+The bass uses six harmonics rather than a discontinuous ramp. The quarter-duty
+lead is circularly smoothed without changing its period; pad notes have stronger
+phrase accents. One-shot samples have short attacks and zero-ending release ramps.
+A decaying two-partial chime answers phrases, while quiet off-beat lead echoes and
+a distinct final pattern build the finale. All variation uses supported notes and
+volume commands; the player’s effect set and six-tick timing are unchanged.
+
+For an optional host-rendered listening preview (requires `openmpt123`):
+
+```sh
+mkdir -p build
+openmpt123 --batch --no-float --end-time 61.44 -o build/music_preview.wav assets/neon.mod
+```
+
+This uses libopenmpt’s mixing and filters, rather than emulated Paula output.
+Compare it with a cycle-exact Amiga run when judging the final soundtrack.

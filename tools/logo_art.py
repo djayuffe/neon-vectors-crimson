@@ -11,7 +11,7 @@ Colour roles (indices):
    0 background              8 extrusion shadow
    1 outline                 9 deep shadow
    2..6 face ramp (dark..light); index 4 is recoloured per row by the Copper (gold sheen)
-   7 specular highlight     10..13 steel ramp (subtitle, wings)
+   7 specular highlight     10..13 rose/copper ramp (subtitle, wings)
   14 accent (rules)         15 spark white
 """
 import math
@@ -20,7 +20,7 @@ W, H = 320, 64
 SS = 3                       # supersampling per axis
 
 PALETTE = [0x001, 0x100, 0x631, 0x963, 0xFC4, 0xFE9, 0xFFC, 0xFFF,
-           0x424, 0x212, 0x246, 0x468, 0x6AC, 0xADF, 0xD42, 0xFFF]
+           0x424, 0x212, 0x624, 0xA46, 0xE79, 0xFCD, 0xD42, 0xFFF]
 
 # ---- 5x7 glyphs (only the letters this logo needs) -------------------------------------------
 GLYPHS = {

@@ -1,8 +1,8 @@
 # Neon Vectors Crimson
 
 A source-complete PAL Amiga demo: three nested wireframes, a perspective starfield,
-eight orbiting sprite balls, a rippling metal logo and a scrolling message over a
-red, orange and pink Copper-bar floor. A generated four-channel tracker tune plays
+eight orbiting sprite balls, a layered, rippling metal logo and a scrolling message over a
+glowing red, orange and pink Copper-bar floor. A generated four-channel tracker tune plays
 through Paula. Press the **left mouse button** to return to the system.
 
 Crimson is a variant of Uber Cracking Service’s *Neon Vectors*. The implementation
@@ -61,8 +61,8 @@ projected vertices and up to 36 blitter-drawn edges. Eight shaded hardware sprit
 orbit on a depth-sorted ring. The 16-line text strip advances one pixel every two
 frames; the logo has independent horizontal scroll on each of its 64 rows.
 
-Music uses seven generated instruments: saw bass, pulse lead, pad, kick, snare,
-closed hat and open hat. Five patterns form an eight-position arrangement. Samples
+Music uses eight generated instruments: saw bass, pulse lead, pad, kick, snare,
+closed hat, open hat and chime. Six patterns form an eight-position arrangement. Samples
 are signed 8-bit PCM with zero-valued silence. This is a deliberately bounded MOD
 player, not a general ProTracker implementation; see [music](docs/MUSIC.md).
 

@@ -54,7 +54,7 @@ a Shell, then check:
   extra fetch word at the left edge and Copper waits after display line 255.
 - All eight sections play and repeat after about 41 seconds. Object edges remain
   solid and the sprite ring respects depth priority.
-- All seven instruments sound intentional; drums retrigger and end without a
+- All eight instruments sound intentional; drums retrigger and end without a
   sustained buzz. Listen across the full 61.44-second song loop.
 - No tearing appears under cycle-exact DMA contention, especially in the stars.
 - Left click restores the prior display and Shell. Repeated runs return memory

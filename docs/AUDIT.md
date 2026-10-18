@@ -17,6 +17,30 @@ status and integration plan.
 The test harness is still a partial hardware model. Physical-machine timing,
 Kickstart behaviour and perceptual audio acceptance remain open release checks.
 
+## Effects and music revision (2026-10-18)
+
+The logo uses a fundamental/second-harmonic ripple and warm rose/copper accents.
+The floor has an ember ramp and brighter bar cores; the raster strip pulses from
+ember to gold. Direct wave indexing and a bar-motion table save 1,074 cycles in
+the worst measured frame while retaining the original bar trajectories.
+
+Music now has eight populated sample slots and six distinct patterns in the same eight
+song positions. The bass uses six harmonics, the pulse lead is circularly smoothed,
+one-shots taper to zero, and chimes, phrase accents and quiet lead echoes develop
+the finale. The final pattern differs from the preceding chorus.
+
+The full 3,200-frame machine-code run passes: 826 audio starts match module data,
+and wireframe buffers match on 3,198 frames. Model CPU cost is 93,600 cycles average
+and 110,730 worst; the minimum star margin is 3,520 cycles. DMA contention and
+blitter timing are still excluded. The executable is 99,116 bytes.
+
+All 33 static and 25 behavioural mutations are detected. Thirteen host regressions
+pass, including loop-seam bounds, zero one-shot endpoints,
+arrangement structure and fixed-point table equivalence. A host libopenmpt render
+of the complete song peaks at approximately -5.62 dBFS with low measured DC offset;
+this checks the rendered signal, not Paula fidelity or subjective listening quality.
+The screenshot was regenerated from the updated executable and visually reviewed.
+
 ## Startup failure coverage follow-up (2026-10-18)
 
 The harness now injects missing graphics.library and NULL AllocMem returns in

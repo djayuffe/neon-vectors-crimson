@@ -215,3 +215,44 @@ class StartupFailureTests(unittest.TestCase):
                     self.assertNotEqual(result.returncode, 0)
                     self.assertIn('FAIL: '+diagnostic, result.stdout)
                     self.assertNotIn('Traceback', result.stderr)
+
+
+class EffectsMusicTests(unittest.TestCase):
+    def test_motion_lookup_preserves_fixed_point_path(self):
+        import math
+        import gen_tables
+        expected = [((round(127*math.sin(2*math.pi*k/256))*13)>>7)+13 for k in range(256)]
+        self.assertEqual(gen_tables.bar_motion(), expected)
+        wave = gen_tables.wave_tab()
+        self.assertEqual(len(wave), 256)
+        self.assertTrue(all(2 <= (v & 15) <= 14 and v >> 4 == v & 15 for v in wave))
+        pulse = gen_tables.raster_palette()
+        self.assertEqual(len(pulse), 32)
+        self.assertEqual(pulse[0], 0x210)
+        self.assertEqual(pulse[16], 0xFFF)
+        self.assertEqual(pulse[1], pulse[-1])
+
+    def test_music_voices_arrangement_and_sample_endpoints(self):
+        root = Path(__file__).resolve().parents[1]
+        mod = (root/'assets/neon.mod').read_bytes()
+        order = list(mod[952:952+mod[950]])
+        self.assertEqual(order, [0,1,2,1,3,2,4,5])
+        self.assertEqual(len(set(order)), 6)
+        offset = 1084+(max(order)+1)*1024
+        count = 0
+        for instrument in range(31):
+            header = 20+instrument*30
+            size = int.from_bytes(mod[header+22:header+24], 'big')*2
+            data = [v if v < 128 else v-256 for v in mod[offset:offset+size]]
+            offset += size
+            if not size:
+                continue
+            count += 1
+            self.assertLessEqual(abs(sum(data)/size), 8)
+            loop = int.from_bytes(mod[header+28:header+30], 'big')
+            if loop <= 1:
+                self.assertEqual((data[0], data[-1]), (0,0))
+            else:
+                self.assertLessEqual(max(abs(data[i]-data[i-1]) for i in range(size)), 40)
+        self.assertEqual(count, 8)
+        self.assertEqual(offset, len(mod))

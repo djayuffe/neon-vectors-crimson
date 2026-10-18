@@ -35,9 +35,21 @@ FLOOR_Y0, FLOOR_H = 222, 34          # copper-bar floor: rows 222..255, one WAIT
 NBARS = 4
 
 def floor_base():
-    """Static floor colour per row (a dark purple ramp) that the animated bars are drawn over."""
-    fl = [(0.0, 0x102), (1.0, 0x424)]
+    """Static floor colour per row (a dark ember ramp) that the animated bars are drawn over."""
+    fl = [(0.0, 0x100), (0.55, 0x211), (1.0, 0x511)]
     return [ramp(fl, i / (FLOOR_H - 1)) for i in range(FLOOR_H)]
+
+def raster_palette():
+    """32-frame ember-to-gold pulse with a continuous loop endpoint."""
+    stops = [(0, 0x210), (0.45, 0xC32), (0.75, 0xFA6), (1, 0xFFF)]
+    return [ramp(stops, (1-math.cos(2*math.pi*k/32))/2) for k in range(32)]
+
+
+def bar_motion():
+    """Precomputed bar tops, matching the 68000 fixed-point sine arithmetic."""
+    return [((round(127 * math.sin(2 * math.pi * k / 256)) * 13) >> 7) + FLOOR_H // 2 - 4
+            for k in range(256)]
+
 
 def bar_colors():
     """NBARS bars of 8 rows each: a colour with a soft bright core (intensity 1-2-3-4-4-3-2-1 / 4)."""
@@ -46,7 +58,8 @@ def bar_colors():
     out = []
     for base in bases:
         for pk in prof:
-            out.append(lerp(0x001, base, pk / 4))
+            colour = lerp(0x001, base, pk / 4)
+            out.append(lerp(colour, 0xFFF, 0.4 if pk == 4 else 0.12) if pk >= 3 else colour)
     return out
 
 MID_PALETTE = [0x001, 0xAAD, 0x3FC, 0x3FC, 0x779, 0xFFF, 0x3FC, 0x3FC,
@@ -127,11 +140,11 @@ def copper():
     return '\n'.join(lines)
 
 def wave_tab():
-    # 256 BPLCON1 values for the wavy logo: 8 + round-down(sin * 6 / 128), same nibble for both playfields.
+    # Fundamental + second harmonic: a layered ripple, safely inside 2..14 pixels.
     vals = []
     for k in range(256):
-        sv = int(round(127 * math.sin(2 * math.pi * k / 256)))
-        v = 8 + ((sv * 6) >> 7)
+        phase = 2 * math.pi * k / 256
+        v = 8 + round(4 * math.sin(phase) + 2 * math.sin(2 * phase))
         vals.append(v | (v << 4))
     return vals
 
@@ -248,6 +261,8 @@ if __name__ == '__main__':
            'wave_tab': lambda: words(wave_tab()), 'palette': header_palette,
            'balls': lambda: words(balls(), 8), 'spr_palette': spr_palette,
            'ring_tab': lambda: '\n'.join('        dc.w ' + ','.join('%d' % v for v in ring_tab()[i:i + 16]) for i in range(0, 512, 16)),
+           'raster_palette': lambda: words(raster_palette(), 16),
+           'bar_motion': lambda: words(bar_motion(), 16),
            'aga_palette': lambda: words(aga_palette(), 8),
            'row_offsets': lambda: words([y * 40 for y in range(256)], 16)}
     parser.add_argument('table', choices=sorted(tables))
