@@ -882,7 +882,7 @@ def main():
     # Every frame, the wireframe buffer the Copper is showing must equal the reference frame
     # exactly, including the rows outside the band. A single snapshot can miss stale pixels
     # that only occur in rows the object seldom reaches.
-    wire_fail, pulse_fail, ring_fail = [], [], []
+    wire_fail, pulse_fail, ring_fail, wave_fail = [], [], [], []
     wire_frames = [0]
     gallery_frames = {128+256*scene for scene in range(8)}
     if args.gallery_dir:
@@ -891,6 +891,14 @@ def main():
         if n < 3 or wire_fail:
             return
         eq = a.consts
+        if not wave_fail:
+            frame = n-1
+            wave = gen_tables.wave_tab((frame >> 8) & 7)
+            copper = a.mem.r32(a.sym('ptr_wave'))
+            for row in range(eq['LOGO_H']):
+                if a.mem.r16(copper+row*16+14) != wave[(frame*4+row*3)&255]:
+                    wave_fail.append('scene logo ripple differs at frame %d row %d' % (n,row))
+                    break
         if not pulse_fail and a.mem.r16(a.sym('visual_pulse')) != ref_visual_pulse(n-1, mod):
             pulse_fail.append('music-driven light envelope differs at frame %d' % n)
         if not ring_fail:
@@ -1143,7 +1151,7 @@ def main():
         rows = sorted({i // 40 for i in bad})
         check(not bad, '%s differs from the expected image in %d bytes (rows %s...)' % (name, len(bad), rows[:6]))
         return not bad
-    for m_ in wire_fail+pulse_fail+ring_fail:
+    for m_ in wire_fail+pulse_fail+ring_fail+wave_fail:
         check(False, m_)
     ok0 = diff('plane 0 (logo + mid stars + scroller)', sn['planes'][0], e0)
     ok2 = diff('plane 2 (far + near stars)', sn['planes'][2], e2)
@@ -1184,7 +1192,7 @@ def main():
     sine = [int(round(127 * math.sin(2 * math.pi * i / 256))) for i in range(256)]
     wave_bad, shown_bad = [], 0
     for r in range(LOGO_H):
-        want_sc = gen_tables.wave_tab()[(((f << 2) & 0xFFFF) + 3 * r) & 255]
+        want_sc = gen_tables.wave_tab((f >> 8) & 7)[(((f << 2) & 0xFFFF) + 3 * r) & 255]
         v = want_sc & 15
         got_sc = sn['bplcon1_by_line'][44 + LOGO_Y + r]
         if got_sc != want_sc:

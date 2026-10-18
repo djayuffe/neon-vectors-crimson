@@ -161,14 +161,22 @@ def copper():
     lines.append('        dc.w $FFFF,$FFFE')
     return '\n'.join(lines)
 
-def wave_tab():
-    # Fundamental + second harmonic: a layered ripple, safely inside 2..14 pixels.
+# Fundamental amplitude, harmonic amplitude and harmonic number per movement.
+# The absolute amplitudes sum to at most six: every fetch stays inside 2..14.
+WAVE_SHAPES = ((4, 2, 2), (2, 1, 3), (3, 3, 3), (5, 1, 2),
+               (3, 2, 4), (2, -3, 2), (4, -2, 3), (1, 1, 2))
+
+def wave_tab(scene=0):
+    fundamental, harmonic, frequency = WAVE_SHAPES[scene]
     vals = []
     for k in range(256):
         phase = 2 * math.pi * k / 256
-        v = 8 + round(4 * math.sin(phase) + 2 * math.sin(2 * phase))
+        v = 8 + round(fundamental * math.sin(phase) + harmonic * math.sin(frequency * phase))
         vals.append(v | (v << 4))
     return vals
+
+def wave_banks():
+    return [value for scene in range(8) for value in wave_tab(scene)]
 
 # ---- hardware sprite balls --------------------------------------------------------------------
 BALL_SIZES = (16, 12, 8)             # near, mid, far; each drawn centred in a 16 pixel wide sprite
@@ -280,7 +288,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     tables = {'copper': copper, 'sintab': sintab, 'recip_star': recip_star, 'recip_wire': recip_wire,
            'floor_base': lambda: words(floor_base()), 'bar_colors': lambda: words(bar_colors(), 8),
-           'wave_tab': lambda: words(wave_tab()), 'palette': header_palette,
+           'wave_tab': lambda: words(wave_tab()), 'wave_banks': lambda: words(wave_banks()), 'palette': header_palette,
            'balls': lambda: words(balls(), 8), 'spr_palette': spr_palette,
            'ring_tab': lambda: '\n'.join('        dc.w ' + ','.join('%d' % v for v in ring_tab()[i:i + 16]) for i in range(0, 512, 16)),
            'raster_palette': lambda: words(raster_palette(), 16),

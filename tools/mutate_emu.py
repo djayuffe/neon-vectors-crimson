@@ -13,6 +13,9 @@ _workspace = tempfile.TemporaryDirectory(prefix='neon-emu-')
 M = Path(_workspace.name) / 'repo'
 
 MUTANTS = [
+    ('logo scene bank ignored', 'src/main.s',
+     '        adda.w  d1,a2\n        move.w  frame_no,d0',
+     '        nop\n        move.w  frame_no,d0', 'scene logo ripple'),
     ('music onset cue removed', 'src/modplayer.s',
      '        move.w  #15,visual_pulse', '        clr.w   visual_pulse', 'music-driven'),
     ('scene palette bank stride halved', 'src/main.s',

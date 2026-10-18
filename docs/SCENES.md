@@ -2,7 +2,7 @@
 
 These frames are captured from the assembled executable on the emulated 68000.
 Each movement lasts 256 frames; all eight loop in about 41 seconds. Their names
-identify the choreography, floor colours and sprite-ring attitudes.
+identify the choreography, floor colours, logo motion and sprite-ring attitudes.
 
 | Ignition | Prism |
 | --- | --- |
@@ -51,3 +51,16 @@ For the complete schedule alignment, use `--frames 6400 --snap 4490`.
 The harness checks the music envelope and eight sprite buffers every frame, the
 wireframe bitmap every frame, and the floor lighting at each gallery capture.
 Its hardware model still omits DMA contention and blitter duration.
+
+## Eight logo motions
+
+The Copper scroll now follows a different harmonic profile in every movement:
+layered ignition, a restrained prism shimmer, a triple-frequency phase shift,
+a broad diamond swell, a fine constellation ripple, an opposing orbital wave,
+a sharp redline interference pattern and a quiet afterglow. Each profile loops
+continuously and stays within the safe 2–14 pixel fetch range.
+
+The eight 256-word tables occupy 4 KiB of ordinary data, replacing the previous
+512-byte table. Scene selection happens once per frame; the 64 Copper row writes,
+chip allocation and display planes are unchanged. The emulator checks every row
+on every frame, including scene transitions and wraparound.

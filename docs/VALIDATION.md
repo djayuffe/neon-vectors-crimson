@@ -132,3 +132,14 @@ Long-run scroller checks compare the stored character/column position modulo the
 message length, while pixel reconstruction uses total elapsed shifts. This keeps
 the previous message tail visible after a wrap. The distribution snapshot at frame
 4490 exercises the first wrap of the current message within the 6,400-frame run.
+
+## Scene logo expansion (2026-10-18)
+
+The eight harmonic logo banks pass a 2,100-frame execution, including the visual
+loop boundary. Every frame checks all 64 Copper scroll words against the scene
+reference. Both a removed scene selector and an incorrect row phase are detected
+by targeted mutation runs after a passing baseline. All 18 host tests, 33 static
+mutants and deterministic asset reproduction pass. Worst modeled work is 111,018
+CPU cycles (about 78% of a PAL frame); the minimum starfield margin is 3,306 cycles.
+The model excludes DMA contention and blitter duration; physical hardware and
+cycle-exact acceptance remain open. Gallery images were regenerated from this run.

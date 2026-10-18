@@ -1,5 +1,12 @@
 # Release notes
 
+## Scene-specific logo choreography
+
+- Eight distinct harmonic logo motions match the eight visual movements.
+- Safe 2–14 pixel scroll limits and continuous phase loops for every profile.
+- Every-frame Copper row checks and a mutation test for a lost scene bank.
+- No additional chip memory or Copper instructions.
+
 ## Music-driven choreography
 
 - Real kick, snare and chime onsets drive a short Copper light envelope.

@@ -229,6 +229,12 @@ class EffectsMusicTests(unittest.TestCase):
         wave = gen_tables.wave_tab()
         self.assertEqual(len(wave), 256)
         self.assertTrue(all(2 <= (v & 15) <= 14 and v >> 4 == v & 15 for v in wave))
+        banks = [gen_tables.wave_tab(scene) for scene in range(8)]
+        self.assertEqual(len({tuple(bank) for bank in banks}), 8)
+        self.assertEqual(len(gen_tables.wave_banks()), 2048)
+        for bank in banks:
+            self.assertTrue(all(2 <= (v & 15) <= 14 and v >> 4 == v & 15 for v in bank))
+            self.assertTrue(all(abs((bank[k] & 15)-(bank[(k+1)%256] & 15)) <= 1 for k in range(256)))
         pulse = gen_tables.raster_palette()
         self.assertEqual(len(pulse), 32)
         self.assertEqual(pulse[0], 0x210)
