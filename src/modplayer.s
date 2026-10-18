@@ -124,6 +124,18 @@ MOD_Row:
         cmp.w   #31,d2
         bhi     .effects
         subq.w  #1,d2                     ; zero based sample
+; Decoded percussion and chime notes start the visual light envelope.
+        tst.w   d1
+        beq     .visual_done
+        cmp.w   #2,d2                     ; kick (sample 3)
+        beq     .visual_onset
+        cmp.w   #3,d2                     ; snare (sample 4)
+        beq     .visual_onset
+        cmp.w   #7,d2                     ; chime (sample 8)
+        bne     .visual_done
+.visual_onset:
+        move.w  #15,visual_pulse
+.visual_done:
         move.w  d2,d5
         lsl.w   #2,d5
         lea     mod_sample_ptrs,a3

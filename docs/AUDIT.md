@@ -17,6 +17,33 @@ status and integration plan.
 The test harness is still a partial hardware model. Physical-machine timing,
 Kickstart behaviour and perceptual audio acceptance remain open release checks.
 
+## Music-driven choreography (2026-10-18)
+
+Kick, snare and chime events start a 15-frame visual envelope. Eight scene palettes
+with four brightness banks give each movement a distinct atmosphere. Separate
+scene tilts change the sprite ring’s attitude. The palette bank occupies 2 KiB of
+ordinary data; chip-RAM payload size and Copper instruction count are unchanged.
+
+The 3,200-frame run passes with envelope and sprite-page references on every frame,
+all eight gallery-floor checks, 3,198 wireframe-buffer comparisons and 826 matched
+audio triggers. CPU work averages 93,805 cycles, with 110,938 worst; the minimum
+star margin is 3,386 cycles in the partial hardware model. Eighteen host regressions, all 33 static
+mutations and all 28 behavioural mutations pass. The generated gallery was visually reviewed.
+
+A longer run exposed a harness-only scroller counter error after message wrap:
+the stored character/column phase was compared with lifetime pixel shifts. The
+reference now checks phase modulo message length and reconstructs pixels from
+absolute shifts. A short-message execution regression proves that the previous
+message tail stays visible after wrap. The production snapshot explicitly exercises
+that boundary. The scene and musical schedules realign every 6,144 nominal frames,
+while the starfield and text continue independently.
+
+The corrected 6,400-frame acceptance run passes, including a snapshot immediately
+after the first text wrap. It verifies 6,398 displayed wireframe buffers and 1,653
+audio starts, with per-frame light-envelope and sprite-page checks. Average CPU
+work is 94,655 cycles, worst 110,938; the minimum star margin is 3,342 cycles in the
+partial hardware model. The distribution gate now covers this longer run.
+
 ## Visual identity revision (2026-10-18)
 
 The logo now includes native-pixel 3x5 machine labels and chamfered corner brackets.

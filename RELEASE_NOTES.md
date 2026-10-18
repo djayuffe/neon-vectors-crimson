@@ -1,5 +1,13 @@
 # Release notes
 
+## Music-driven choreography
+
+- Real kick, snare and chime onsets drive a short Copper light envelope.
+- Eight named visual movements have distinct floor palettes and sprite-ring tilts.
+- Precomputed light banks add no bitplanes or Copper instructions.
+- Every-frame envelope and sprite references, plus an executable-generated scene gallery.
+- New mutation tests catch lost onset cues, bad palette strides and incorrect scene tilts.
+
 ## Authentic Amiga visual identity
 
 - Unified gold/copper, ice-cyan and crimson palette across logo, vectors, sprites and text.

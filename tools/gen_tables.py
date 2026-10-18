@@ -51,9 +51,9 @@ def bar_motion():
             for k in range(256)]
 
 
-def bar_colors():
+def bar_colors(bases=None):
     """NBARS bars of 8 rows each: a colour with a soft bright core (intensity 1-2-3-4-4-3-2-1 / 4)."""
-    bases = [0xF22, 0xF82, 0xFD3, 0xF4A]            # red, orange, amber, hot pink
+    bases = bases or [0xF22, 0xF82, 0xFD3, 0xF4A]            # red, orange, amber, hot pink
     prof = [1, 2, 3, 4, 4, 3, 2, 1]
     out = []
     for base in bases:
@@ -61,6 +61,28 @@ def bar_colors():
             colour = lerp(0x001, base, pk / 4)
             out.append(lerp(colour, 0xFFF, 0.4 if pk == 4 else 0.12) if pk >= 3 else colour)
     return out
+
+SCENE_FLOORS = (
+    (0xF22, 0xF82, 0xFD3, 0xF4A),  # ignition: original crimson
+    (0xB24, 0xF46, 0xF93, 0xFD8),  # prism: ruby and amber
+    (0x248, 0x48C, 0x6DF, 0xB8F),  # phase shift: ice/violet warp
+    (0xC42, 0xF82, 0xFB5, 0xFED),  # diamond: copper and gold
+    (0x924, 0xD43, 0xF96, 0xFCB),  # constellation: warm dusk
+    (0x35A, 0x68C, 0xC46, 0xF9B),  # orbital: blue/ruby counterpoint
+    (0x900, 0xD21, 0xF63, 0xFBA),  # redline: hot red/white
+    (0xF43, 0xFA6, 0xF6A, 0xFDD),  # afterglow: finale
+)
+
+
+def bar_palettes():
+    """Eight scenes x four onset-energy levels x 32 Copper colours."""
+    colours = []
+    for bases in SCENE_FLOORS:
+        base = bar_colors(bases)
+        for energy in range(4):
+            colours += [lerp(colour, 0xFFF, energy * 0.12) for colour in base]
+    return colours
+
 
 MID_PALETTE = [0x001, 0x89A, 0x6DF, 0x6DF, 0x456, 0xDDE, 0x6DF, 0x6DF,
                0x57B, 0x57B, 0xBDF, 0xBDF, 0x57B, 0x57B, 0xBDF, 0xBDF]
@@ -262,6 +284,7 @@ if __name__ == '__main__':
            'balls': lambda: words(balls(), 8), 'spr_palette': spr_palette,
            'ring_tab': lambda: '\n'.join('        dc.w ' + ','.join('%d' % v for v in ring_tab()[i:i + 16]) for i in range(0, 512, 16)),
            'raster_palette': lambda: words(raster_palette(), 16),
+           'bar_palettes': lambda: words(bar_palettes(), 8),
            'bar_motion': lambda: words(bar_motion(), 16),
            'aga_palette': lambda: words(aga_palette(), 8),
            'row_offsets': lambda: words([y * 40 for y in range(256)], 16)}

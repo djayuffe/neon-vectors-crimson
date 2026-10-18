@@ -51,7 +51,10 @@ verify-repro:
 	$(PYTHON) tools/verify_repro.py
 
 # Runs the assembled program on an emulated 68000 (needs: pip install machine68k).
-# Uses its own symbol-carrying build, so it does not depend on "make".
+# Uses a symbol-carrying build; gallery additionally captures each scene.
+gallery: all
+	$(PYTHON) tools/emu_test.py --frames 2100 --snap 1850 --gallery-dir build/scene-gallery
+
 emutest:
 	$(PYTHON) tools/emu_test.py
 
@@ -103,9 +106,9 @@ release:
 
 # Package only a clean source revision after all release gates pass.
 dist: release
-	$(PYTHON) tools/emu_test.py --frames 3200 --snap 1850
+	$(PYTHON) tools/emu_test.py --frames 6400 --snap 4490
 	$(PYTHON) tools/emu_test.py --loader-chip --frames 100 --snap 80
 	$(PYTHON) tools/emu_test.py --ntsc --frames 100
 	$(PYTHON) tools/package_release.py
 
-.PHONY: dist FORCE test all assets validate mutants verify-repro emutest emu-mutants manifest toolchain hunkcheck clean distclean release
+.PHONY: gallery dist FORCE test all assets validate mutants verify-repro emutest emu-mutants manifest toolchain hunkcheck clean distclean release

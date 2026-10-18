@@ -14,7 +14,7 @@ and pixel alphabets.
 | Geometry | Ice cyan, with cooler secondary blue shades | `MID_PALETTE` |
 | Stars | Slate, grey-blue and near-white depth steps | Middle-band indices 4, 1 and 5 |
 | Text | Cream to white to gold, over oxblood | Copper scroller band |
-| Floor | Ember shadow, red/orange/amber/ruby bars and bright cores | `floor_base`, `bar_colors` |
+| Floor | Ember base, scene-specific warm/cool bars, musical light accents | `floor_base`, `bar_colors` |
 | Sprite ring | Gold and ruby in front; cooler blues at distance | Sprite pair palettes |
 
 A quieter midnight field gives the moving geometry priority. Bright colours are
@@ -46,3 +46,8 @@ preview image cannot show the running Copper gradients or per-row hardware scrol
 Check logo ink bounds, label legibility, star/vector contrast, sprite priority and
 the scroller strip at native scale. Run the full section cycle and asset-freshness
 checks before committing a new visual revision.
+
+Eight movements explore variations within this identity: ice/violet in Phase Shift,
+blue/ruby in Orbital and hot red/white in Redline. Tracker onsets brighten their
+precomputed colour ramps; the logo and vector colours remain the visual anchors.
+See [the executable-generated scene gallery](SCENES.md).

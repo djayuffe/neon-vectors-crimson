@@ -57,3 +57,9 @@ openmpt123 --batch --no-float --end-time 61.44 -o build/music_preview.wav assets
 
 This uses libopenmpt’s mixing and filters, rather than emulated Paula output.
 Compare it with a cycle-exact Amiga run when judging the final soundtrack.
+
+Kick, snare and chime notes also emit a visual onset cue. This uses decoded
+sample-and-period events, with a short visual envelope, while retaining the
+existing audio DMA trigger and reload sequence. The visual response begins on
+the following display update; it uses neither an extra audio channel nor a new
+interrupt handler.

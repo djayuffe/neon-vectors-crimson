@@ -89,3 +89,12 @@ NEON, CRIMSON, PAL and 50HZ lettering. These details are part of the four-plane 
 not host-rendered overlays. The original UBER / CRACKING SERVICE identity remains.
 The scroller reads like a scene greeting and credits the 68000/Copper/Paula machine
 itself, without invented historical dates or additional authorship claims.
+
+## Musical choreography
+
+`MOD_Row` identifies kick, snare and chime onsets and starts `visual_pulse` at 15.
+`UpdateSection` decays the envelope each frame, selects a scene-specific ring tilt,
+and retains the existing object/star settings. `UpdateBars` indexes the scene’s
+four precomputed light banks. Runtime arithmetic selects a bank; colour blending
+happens entirely in the host generator. The original motion paths and Copper list
+length remain intact. See [the captured scene gallery](SCENES.md).

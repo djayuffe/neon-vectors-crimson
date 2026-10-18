@@ -13,6 +13,14 @@ _workspace = tempfile.TemporaryDirectory(prefix='neon-emu-')
 M = Path(_workspace.name) / 'repo'
 
 MUTANTS = [
+    ('music onset cue removed', 'src/modplayer.s',
+     '        move.w  #15,visual_pulse', '        clr.w   visual_pulse', 'music-driven'),
+    ('scene palette bank stride halved', 'src/main.s',
+     '        lsl.w   #8,d0                      ; 256 bytes per scene',
+     '        lsl.w   #7,d0                      ; wrong scene stride', 'floor bar'),
+    ('second scene ring tilt lost', 'src/main.s',
+     'ring_tilts: dc.w 40,24,56,44,32,64,20,48',
+     'ring_tilts: dc.w 40,40,56,44,32,64,20,48', 'sprite'),
     ('octant table: two entries swapped', 'src/main.s',
      '        dc.b $11,$15,$19,$1D ', '        dc.b $11,$15,$1D,$19 ', 'wireframe'),
     ('ONEDOT set (gappy shallow lines)', 'src/main.s',
@@ -50,7 +58,7 @@ MUTANTS = [
     ('sprite DMA never enabled', 'src/main.s',
      'DMAF_BLITTER|DMAF_SPRITE),DMACON(a6)', 'DMAF_BLITTER),DMACON(a6)', 'sprite DMA'),
     ('ring wobble ignores the tilt', 'src/main.s',
-     '        addi.w  #RING_TILT,d1\n', '        move.w  #RING_TILT,d1\n', 'sprite'),
+     '        add.w   sec_tilt,d1\n', '        move.w  #40,d1\n', 'sprite'),
     ('wireframe vertex sign handling wrong', 'src/main.s',
      '.mx:\n        sub.l   0(a5),d3\n        sub.l   4(a5),d4\n        sub.l   8(a5),d5', '.mx:\n        add.l   0(a5),d3\n        sub.l   4(a5),d4\n        sub.l   8(a5),d5', 'wireframe'),
     ('AUDxLEN written as words minus one', 'src/modplayer.s',
@@ -76,7 +84,7 @@ def populate():
         shutil.copytree(bin_dir, M / 'tools/bin')
 
 def emu():
-    return subprocess.run([sys.executable, str(M / 'tools/emu_test.py'), '--frames', '300', '--snap', '250'],
+    return subprocess.run([sys.executable, str(M / 'tools/emu_test.py'), '--frames', '300', '--snap', '280'],
                           capture_output=True, text=True)
 
 def run(name, rel, old, new, expect):

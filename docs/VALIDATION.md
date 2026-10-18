@@ -118,3 +118,17 @@ Each requires return code 20, preserved registers and stack, balanced library an
 memory ownership, unchanged DMA/interrupt/audio control state, no display takeover,
 and the exact expected cleanup call sequence. These checks run in `make test` when
 VASM and machine68k are available; otherwise that optional test reports a skip.
+
+## Choreography references
+
+The harness derives expected visual pulse values directly from MOD note history,
+checks them after every completed frame and checks all eight sprite pages against
+independent scene-tilt references. Gallery captures validate the scene palette and
+light level against an independent floor calculation. Host tests cover the pulse
+decay, non-triggering events, palette-bank extents and monotonic light levels.
+Mutation cases include a missing onset cue, wrong palette stride and lost second-scene tilt.
+
+Long-run scroller checks compare the stored character/column position modulo the
+message length, while pixel reconstruction uses total elapsed shifts. This keeps
+the previous message tail visible after a wrap. The distribution snapshot at frame
+4490 exercises the first wrap of the current message within the 6,400-frame run.

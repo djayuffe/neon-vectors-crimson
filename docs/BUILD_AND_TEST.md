@@ -68,8 +68,9 @@ features.
 ## Distribution candidate
 
 After reviewing changes, run `make manifest`, commit them, and run `make dist`.
-Distribution requires `machine68k`: the gate executes a full 3,200-frame music/scene
-loop, the chip-loader scenario and NTSC escape check before packaging.
+Distribution requires `machine68k`: the gate executes 6,400 frames to cover the
+full music/scene schedule alignment, then the chip-loader scenario and NTSC escape
+check before packaging.
 Release checks fail on a stale manifest rather than rewriting it. Packaging requires
 a clean committed checkout and produces `build/neon_vectors_crimson.zip` with the
 executable, Amiga Shell instructions, full source revision and payload checksums.

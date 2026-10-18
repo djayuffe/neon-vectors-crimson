@@ -518,7 +518,7 @@ class Amiga:
         """Interpret the Copper list and bitplanes exactly as the chipset would show them."""
         mem = self.mem
         out = dict(dmacon=self.dmacon, intena=self.intena)
-        out['shifts'] = (mem.r32(self.sym('scroll_ptr')) - self.sym('scroll_text')) * 8 + mem.r8(self.sym('glyph_col'))
+        out['scroll_phase'] = (mem.r32(self.sym('scroll_ptr')) - self.sym('scroll_text')) * 8 + mem.r8(self.sym('glyph_col'))
         a = mem.r32(CUSTOM + 0x80)
         ev, line, terminated, wrapped = [], 0, False, False
         for _ in range(4096):
@@ -641,12 +641,41 @@ SCENES = (
 )
 
 
+RING_TILTS = (40, 24, 56, 44, 32, 64, 20, 48)
+
+
+def ref_visual_pulse(frame, module):
+    """Post-tick envelope from MOD note data; only the latest 15 frames matter."""
+    if frame < 1:
+        return 0
+    order = module[952:952+module[950]]
+    last_row = (frame-1)//6
+    for row in range(last_row, max(-1, last_row-3), -1):
+        onset = 1+row*6
+        age = frame-onset
+        if age >= 15:
+            break
+        offset = 1084+order[(row//64)%len(order)]*1024+(row%64)*16
+        for channel in range(4):
+            b0,b1,b2,_ = module[offset+channel*4:offset+channel*4+4]
+            sample, period = (b0&0xF0)|(b2>>4), ((b0&15)<<8)|b1
+            if sample in (3,4,8) and period:
+                return 15-age
+    return 0
+
+
 def scene(frame):
     return SCENES[(frame >> 8) & 7]
 
 
 def spin_phase(updates):
-    return sum(scene(frame)[1] for frame in range(1, updates + 1))
+    if updates < 0:
+        raise ValueError('updates must be nonnegative')
+    spins = tuple(row[1] for row in SCENES)
+    cycles, remainder = divmod(updates+1, 2048)
+    sections, partial = divmod(remainder, 256)
+    return (cycles*256*sum(spins)+256*sum(spins[:sections])+
+            partial*spins[sections]-spins[0])
 
 
 def ref_stars(nupdates, nstars, consts):
@@ -754,7 +783,7 @@ def ref_ring(f, wire_cx, consts):
     tab = [int(round(127 * math.sin(2 * math.pi * i / 256))) for i in range(256)]
     sin = lambda a: tab[a & 255]
     cos = lambda a: tab[(a + 64) & 255]
-    tilt = TILT + (sin(2 * f) >> 4)
+    tilt = RING_TILTS[(f >> 8) & 7] + (sin(2 * f) >> 4)
     st, ct, sr, cr = sin(tilt), cos(tilt), sin(f), cos(f)
     A, B, C, Dm, F = cr, (st * sr) >> 7, sr, -((st * cr) >> 7), ct
     balls = []
@@ -793,10 +822,36 @@ def png(path, w, h, rows):
                      chunk(b'IDAT', zlib.compress(raw, 9)) + chunk(b'IEND', b''))
 
 
+def write_snapshot(path, snapshot):
+    rows = []
+    for scanline in snapshot['img']:
+        row = b''.join(bytes((((v >> 8)&15)*17, ((v >> 4)&15)*17, (v&15)*17))*2 for v in scanline)
+        rows += [row, row]
+    png(Path(path), 640, len(rows), rows)
+
+
+def check_floor(snapshot, frame, module):
+    """Reference floor light from scene and MOD history, independent of runtime state."""
+    rows = list(gen_tables.floor_base())
+    energy = max(0, ref_visual_pulse(frame-1, module)-1) >> 2
+    bank = (((frame >> 8)&7)*4+energy)*32
+    colours = gen_tables.bar_palettes()[bank:bank+32]
+    for bar in range(gen_tables.NBARS):
+        angle = (frame*(bar+2)+64*bar)&255
+        top = ((round(127*math.sin(2*math.pi*angle/256))*13)>>7)+13
+        for row in range(8):
+            if 0 <= top+row < gen_tables.FLOOR_H:
+                rows[top+row] = colours[bar*8+row]
+    actual = [snapshot['pal_by_line'][44+gen_tables.FLOOR_Y0+row][0]
+              for row in range(gen_tables.FLOOR_H)]
+    check(actual == rows, 'floor bar lighting differs at scene frame %d' % frame)
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--frames', type=int, default=800, help='frames to run before pressing the mouse button')
     ap.add_argument('--png', help='write the rendered frame as a PNG')
+    ap.add_argument('--gallery-dir', type=Path, help='render the midpoint of each scene into this directory')
     ap.add_argument('--snap', type=int, default=700, help='frame to render and check')
     failure = ap.add_mutually_exclusive_group()
     failure.add_argument('--alloc-fail', action='store_true', help='AllocMem returns NULL before takeover')
@@ -827,12 +882,34 @@ def main():
     # Every frame, the wireframe buffer the Copper is showing must equal the reference frame
     # exactly, including the rows outside the band. A single snapshot can miss stale pixels
     # that only occur in rows the object seldom reaches.
-    wire_fail = []
+    wire_fail, pulse_fail, ring_fail = [], [], []
     wire_frames = [0]
+    gallery_frames = {128+256*scene for scene in range(8)}
+    if args.gallery_dir:
+        args.gallery_dir.mkdir(parents=True, exist_ok=True)
     def wire_each_frame(n, bpl2):
         if n < 3 or wire_fail:
             return
         eq = a.consts
+        if not pulse_fail and a.mem.r16(a.sym('visual_pulse')) != ref_visual_pulse(n-1, mod):
+            pulse_fail.append('music-driven light envelope differs at frame %d' % n)
+        if not ring_fail:
+            phase = spin_phase(n-2)
+            centre = eq['MID_CX'] + ((round(127*math.sin(2*math.pi*(phase&255)/256))*eq['WIRE_SWAY'])>>7)
+            ring = ref_ring(n-1, centre, tuple(eq[key] for key in
+                ('RING_R','RING_TILT','WIRE_ZOFF','MID_CY','BALL_NEAR','BALL_MID','WIRE_D')))
+            copper = a.mem.r32(a.sym('reloc_table')+44)
+            for rank, expected in enumerate(ring):
+                pointer = (a.mem.r16(copper+rank*8+2)<<16)|a.mem.r16(copper+rank*8+6)
+                if a.mem.r_block(pointer,len(expected)) != expected:
+                    ring_fail.append('sprite ring choreography differs at frame %d rank %d' % (n,rank))
+                    break
+        if args.gallery_dir and n in gallery_frames:
+            snapshot = a.render()
+            check_floor(snapshot,n-1,mod)
+            destination = args.gallery_dir/('scene-%d.png' % ((n-1)>>8))
+            write_snapshot(destination,snapshot)
+            print('  gallery:',destination,flush=True)
         if not a.ready_verts:
             a.ready_verts = True
             a.wv = [struct.unpack('>3h', a.mem.r_block(a.sym('verts') + 6 * i, 6)) for i in range(14)]
@@ -1036,8 +1113,10 @@ def main():
         if cl & 1: setpix(e2, x, y)
         if cl & 2: setpix(e0, x, y)
     tb = bytes(mem.r_block(a.sym('scroll_text'), a.sym('scroll_text_end') - a.sym('scroll_text'))).split(b'\0')[0]
-    shifts = sn['shifts']
-    check(shifts == (n - 1) // 2, 'scroller advanced %d pixels in %d frames, expected %d' % (shifts, n - 1, (n - 1) // 2))
+    shifts = (n-1)//2
+    phase = shifts % (len(tb)*8)
+    check(sn['scroll_phase'] == phase,
+          'scroller phase %d differs from expected %d after %d shifts' % (sn['scroll_phase'], phase, shifts))
     def stream_bit(kk, row):
         if kk < 0:
             return 0
@@ -1064,7 +1143,7 @@ def main():
         rows = sorted({i // 40 for i in bad})
         check(not bad, '%s differs from the expected image in %d bytes (rows %s...)' % (name, len(bad), rows[:6]))
         return not bad
-    for m_ in wire_fail:
+    for m_ in wire_fail+pulse_fail+ring_fail:
         check(False, m_)
     ok0 = diff('plane 0 (logo + mid stars + scroller)', sn['planes'][0], e0)
     ok2 = diff('plane 2 (far + near stars)', sn['planes'][2], e2)
@@ -1121,7 +1200,9 @@ def main():
     # ---- copper-bar floor (all of it lies below display line 255, so this also proves the Copper wrap)
     FY0, FH = gen_tables.FLOOR_Y0, gen_tables.FLOOR_H
     rows = list(gen_tables.floor_base())
-    bc = gen_tables.bar_colors()
+    energy = max(0, ref_visual_pulse(f-1, mod)-1) >> 2
+    bank = (((f >> 8) & 7)*4+energy)*32
+    bc = gen_tables.bar_palettes()[bank:bank+32]
     for k in range(gen_tables.NBARS):
         top = ((sine[(((f * (k + 2)) & 0xFFFF) + 64 * k) & 255] * 13) >> 7) + FH // 2 - 4
         for j in range(8):
@@ -1137,12 +1218,7 @@ def main():
         print('  logo, %d stars, scroller and the %d-edge wireframe (%d pixels) match the reference models exactly'
               % (len(stars), len(edges), len(pix) if wire_ok else 0))
     if args.png:
-        pal_rgb = lambda v: bytes(((v >> 8) & 15) * 17 for _ in range(1)) + bytes(((v >> 4) & 15) * 17 for _ in range(1)) + bytes((v & 15) * 17 for _ in range(1))
-        rows = []
-        for row in sn['img']:
-            r = b''.join(pal_rgb(v) * 2 for v in row)
-            rows += [r, r]
-        png(Path(args.png), 640, len(rows), rows)
+        write_snapshot(args.png, sn)
         print('  wrote', args.png)
     finish()
 

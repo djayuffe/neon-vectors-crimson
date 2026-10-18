@@ -289,3 +289,83 @@ class ReleasePackageTests(unittest.TestCase):
             binary.write_bytes(b'broken')
             with self.assertRaises(ValueError):
                 package_release.write_package(binary, first, 'a'*40)
+
+
+class ChoreographyTests(unittest.TestCase):
+    def test_scene_lighting_banks_are_bounded_and_distinct(self):
+        import gen_tables
+        banks = gen_tables.bar_palettes()
+        self.assertEqual(len(banks), 8*4*32)
+        self.assertTrue(all(0 <= value <= 0xFFF for value in banks))
+        self.assertEqual(len({tuple(banks[scene*128:scene*128+32]) for scene in range(8)}), 8)
+        for scene in range(8):
+            for colour in range(32):
+                shades = [banks[scene*128+level*32+colour] for level in range(4)]
+                for shift in (0,4,8):
+                    components = [(shade>>shift)&15 for shade in shades]
+                    self.assertEqual(components, sorted(components))
+
+    def test_onset_reference_uses_notes_and_decays_to_zero(self):
+        import importlib.util
+        if importlib.util.find_spec('machine68k') is None:
+            self.skipTest('emulation reference needs machine68k')
+        import emu_test
+        module = bytearray(1084+1024)
+        module[950] = 1
+        # A kick on row 0, with a valid period, then no more notes.
+        module[1084:1088] = bytes((1,172,0x30,0))
+        self.assertEqual([emu_test.ref_visual_pulse(frame,module) for frame in (0,1,2,15,16,40)],
+                         [0,15,14,1,0,0])
+        module[1084:1088] = bytes((0,0,0x30,0))
+        self.assertEqual(emu_test.ref_visual_pulse(1,module),0)
+        module[1084:1088] = bytes((1,172,0x10,0))
+        self.assertEqual(emu_test.ref_visual_pulse(1,module),0)
+
+
+class ReferencePhaseTests(unittest.TestCase):
+    def test_constant_time_phase_matches_frame_by_frame_accumulation(self):
+        import importlib.util
+        if importlib.util.find_spec('machine68k') is None:
+            self.skipTest('emulation reference needs machine68k')
+        import emu_test
+        for updates in (0,1,254,255,256,257,2047,2048,4096,6144,6400,65535):
+            with self.subTest(updates=updates):
+                expected = sum(emu_test.scene(frame)[1] for frame in range(1,updates+1))
+                self.assertEqual(emu_test.spin_phase(updates), expected)
+        with self.assertRaises(ValueError):
+            emu_test.spin_phase(-1)
+
+
+class ScrollerWrapTests(unittest.TestCase):
+    def test_message_wrap_preserves_the_already_displayed_tail(self):
+        import importlib.util
+        import os
+        import re
+        import shutil
+        import subprocess
+        import tempfile
+        root = Path(__file__).resolve().parents[1]
+        assembler = os.environ.get('VASM') or shutil.which('vasmm68k_mot')
+        if not assembler and (root/'tools/bin/vasmm68k_mot').is_file():
+            assembler = str(root/'tools/bin/vasmm68k_mot')
+        if not assembler or importlib.util.find_spec('machine68k') is None:
+            self.skipTest('scroller execution check needs machine68k and VASM')
+        with tempfile.TemporaryDirectory(prefix='neon-scroll-wrap-') as tmp:
+            work = Path(tmp)
+            for name in ('tools','assets','src'):
+                shutil.copytree(root/name, work/name,
+                                ignore=shutil.ignore_patterns('bin','vendor','__pycache__'))
+            source = work/'src/main.s'
+            text, count = re.subn(r'(?m)(^scroll_text:\n)[ \t]*dc\.b[^\n]*',
+                                  lambda match: match[1]+'        dc.b " AB ",0',
+                                  source.read_text(), count=1)
+            self.assertEqual(count,1)
+            source.write_text(text)
+            # The four-character message wraps after 64 frames. At frame 80,
+            # old text pixels remain on screen despite a small wrapped phase.
+            result = subprocess.run([sys.executable,str(work/'tools/emu_test.py'),
+                                     '--frames','100','--snap','80'],
+                                    env=dict(os.environ,VASM=assembler),
+                                    capture_output=True,text=True)
+            self.assertEqual(result.returncode,0,result.stdout+result.stderr)
+            self.assertIn('EMULATION TEST PASSED',result.stdout)

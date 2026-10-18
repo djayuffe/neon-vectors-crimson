@@ -2,7 +2,7 @@
 
 A source-complete PAL Amiga demo: three nested wireframes, a perspective starfield,
 eight orbiting sprite balls, a layered, rippling metal logo and a scrolling message over a
-glowing red, orange and pink Copper-bar floor. The visual identity pairs gold and
+Copper-bar floor that changes colour with each scene. The visual identity pairs gold and
 copper lettering with ice-cyan vectors, crimson framing and native-pixel machine labels. A generated four-channel tracker tune plays
 through Paula. Press the **left mouse button** to return to the system.
 
@@ -48,19 +48,24 @@ Eight sections run for 256 frames each, looping after 2,048 frames (40.96 second
 
 | Section | Scene |
 | --- | --- |
-| 0 | Outer cube, octahedron and inner cube |
-| 1 | Outer cube alone |
-| 2 | Fast stars and enlarged inner cube |
-| 3 | Enlarged octahedron at double spin |
-| 4 | All three with faster stars |
-| 5 | Octahedron and enlarged inner cube |
-| 6 | Fastest stars and outer cube |
-| 7 | Three-object finale at double spin |
+| 0 — Ignition | Three objects, original crimson floor |
+| 1 — Prism | Cube, ruby/amber floor, flatter sprite orbit |
+| 2 — Phase Shift | Fast stars, enlarged inner cube, ice/violet floor |
+| 3 — Diamond | Enlarged octahedron, gold floor, double spin |
+| 4 — Constellation | Three objects, quicker stars, warm dusk floor |
+| 5 — Orbital | Octahedron and inner cube, blue/ruby floor, steeper orbit |
+| 6 — Redline | Fastest stars, cube, hot red/white floor |
+| 7 — Afterglow | Three-object finale, gold/ruby floor |
 
 The 64 stars use perspective and three depth brightnesses. The wireframes have 22
 projected vertices and up to 36 blitter-drawn edges. Eight shaded hardware sprites
 orbit on a depth-sorted ring. The 16-line text strip advances one pixel every two
 frames; the logo has independent horizontal scroll on each of its 64 rows.
+
+Kick, snare and chime notes drive a short Copper-light envelope. Each scene has
+four precomputed brightness levels, selected from actual tracker onsets. Sprite-ring tilt changes with the scene too. See the
+[eight-scene gallery](docs/SCENES.md). The visual and musical schedules realign
+after about 122.88 seconds at 50 Hz, giving repeat scenes different musical accents along the way.
 
 Music uses eight generated instruments: saw bass, pulse lead, pad, kick, snare,
 closed hat, open hat and chime. Six patterns form an eight-position arrangement. Samples
@@ -74,6 +79,7 @@ make test            # malformed-Hunk and experimental-helper regression tests
 make validate        # asset contracts and static 68000 source checks
 make verify-repro    # deterministic generation AND checked-in asset freshness
 make mutants         # deliberate source faults must be rejected
+make gallery         # capture all eight scene looks from the running executable
 make emutest         # requires: python3 -m pip install machine68k
 make emu-mutants     # slower behavioural mutation tests
 make release         # verify manifest, build, regressions, mutations and reproducibility
@@ -128,8 +134,9 @@ using empty samples are rejected during validation.
 ## Distribution candidate
 
 After reviewing changes, run `make manifest`, commit them, and run `make dist`.
-Distribution requires `machine68k`: the gate executes a full 3,200-frame music/scene
-loop, the chip-loader scenario and NTSC escape check before packaging.
+Distribution requires `machine68k`: the gate executes 6,400 frames to cover the
+full music/scene schedule alignment, then the chip-loader scenario and NTSC escape
+check before packaging.
 Release checks fail on a stale manifest rather than rewriting it. Packaging requires
 a clean committed checkout and produces `build/neon_vectors_crimson.zip` with the
 executable, Amiga Shell instructions, full source revision and payload checksums.
