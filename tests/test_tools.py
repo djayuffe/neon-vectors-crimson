@@ -154,3 +154,64 @@ class BuildTests(unittest.TestCase):
             self.assertNotEqual(result.returncode, 0)
             self.assertIn('stale', result.stderr)
             self.assertEqual(font.read_bytes(), b'broken')
+
+
+class StartupFailureTests(unittest.TestCase):
+    def test_all_startup_failure_paths(self):
+        import importlib.util
+        import os
+        import shutil
+        import subprocess
+        root = Path(__file__).resolve().parents[1]
+        if importlib.util.find_spec('machine68k') is None:
+            self.skipTest('startup execution checks need machine68k')
+        if not (os.environ.get('VASM') or shutil.which('vasmm68k_mot') or
+                (root/'tools/bin/vasmm68k_mot').is_file()):
+            self.skipTest('startup execution checks need VASM')
+        for flag in ('--open-fail', '--alloc-fail', '--alloc-fast'):
+            with self.subTest(flag=flag):
+                result = subprocess.run([sys.executable, str(root/'tools/emu_test.py'),
+                                         flag, '--frames', '4', '--snap', '3'],
+                                        capture_output=True, text=True)
+                self.assertEqual(result.returncode, 0, result.stdout+result.stderr)
+                self.assertIn('EMULATION TEST PASSED', result.stdout)
+
+    def test_failure_checks_detect_register_and_library_leaks(self):
+        import importlib.util
+        import os
+        import shutil
+        import subprocess
+        import tempfile
+        root = Path(__file__).resolve().parents[1]
+        assembler = os.environ.get('VASM') or shutil.which('vasmm68k_mot')
+        if not assembler and (root/'tools/bin/vasmm68k_mot').is_file():
+            assembler = str(root/'tools/bin/vasmm68k_mot')
+        if not assembler or importlib.util.find_spec('machine68k') is None:
+            self.skipTest('startup mutation checks need machine68k and VASM')
+        original = (root/'src/main.s').read_text()
+        mutations = (
+            ('--open-fail',
+             '.open_fail:\n        movem.l (sp)+,d0-d7/a0-a6',
+             '.open_fail:\n        movem.l (sp)+,d0-d7/a0-a6\n        moveq #1,d1',
+             'd1 not preserved'),
+            ('--alloc-fail',
+             '.alloc_fail:\n        move.l  4.w,a6\n        move.l  gfx_base,a1\n        jsr     LVO_CloseLibrary(a6)',
+             '.alloc_fail:\n        move.l  4.w,a6\n        move.l  gfx_base,a1',
+             'graphics.library not closed'),
+        )
+        with tempfile.TemporaryDirectory(prefix='neon-startup-mutant-') as tmp:
+            work = Path(tmp)
+            for name in ('tools', 'assets', 'src'):
+                shutil.copytree(root/name, work/name,
+                                ignore=shutil.ignore_patterns('bin', 'vendor', '__pycache__'))
+            for flag, old, new, diagnostic in mutations:
+                with self.subTest(flag=flag):
+                    self.assertIn(old, original)
+                    (work/'src/main.s').write_text(original.replace(old, new, 1))
+                    result = subprocess.run([sys.executable, str(work/'tools/emu_test.py'),
+                                             flag, '--frames', '4', '--snap', '3'],
+                                            env=dict(os.environ, VASM=assembler),
+                                            capture_output=True, text=True)
+                    self.assertNotEqual(result.returncode, 0)
+                    self.assertIn('FAIL: '+diagnostic, result.stdout)
+                    self.assertNotIn('Traceback', result.stderr)

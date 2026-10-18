@@ -110,3 +110,11 @@ normalization, zero-radius glows, helper input boundaries and local RNG isolatio
 Hunk parsing is import-safe and rejects unsupported formats explicitly. The MOD
 validator rejects unsupported finetune, period-only notes and empty sample triggers;
 truncated assets fail with diagnostics before pattern decoding.
+
+## Startup failure injection
+
+`--open-fail`, `--alloc-fail` and `--alloc-fast` are mutually exclusive scenarios.
+Each requires return code 20, preserved registers and stack, balanced library and
+memory ownership, unchanged DMA/interrupt/audio control state, no display takeover,
+and the exact expected cleanup call sequence. These checks run in `make test` when
+VASM and machine68k are available; otherwise that optional test reports a skip.

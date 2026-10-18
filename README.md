@@ -83,6 +83,8 @@ For the full visual section cycle and song wrap:
 ```sh
 python3 tools/emu_test.py --frames 3200 --snap 1850
 python3 tools/emu_test.py --loader-chip
+python3 tools/emu_test.py --open-fail               # graphics.library unavailable
+python3 tools/emu_test.py --alloc-fail              # AllocMem returns NULL
 python3 tools/emu_test.py --alloc-fast
 python3 tools/emu_test.py --ntsc --frames 100
 ```

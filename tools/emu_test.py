@@ -131,10 +131,12 @@ def parse_hunks(b):
 
 
 class Amiga:
-    def __init__(self, exe, loader_chip, alloc_fast):
+    def __init__(self, exe, loader_chip, alloc_fast, alloc_fail=False, open_fail=False):
         self.mach = m68k.Machine(m68k.CPUType.M68000, 15 * 1024)
         self.cpu, self.mem = self.mach.cpu, self.mach.mem
         self.alloc_fast = alloc_fast
+        self.alloc_fail = alloc_fail
+        self.open_fail = open_fail
         self.t = 0
         self.nest_forbid = self.nest_disable = 0
         self.chip_ptr, self.fast_ptr = CHIP_POOL, FAST_POOL
@@ -253,6 +255,9 @@ class Amiga:
         size, flags = self.reg(R.D0), self.reg(R.D1)
         check(not self.nest_disable, 'AllocMem called with interrupts disabled')
         self.calls.append('AllocMem')
+        if self.alloc_fail:
+            self.scratch(0); self.ret()
+            return
         if self.alloc_fast or not (flags & 2):
             a = self.fast_alloc(size)
         else:
@@ -292,6 +297,7 @@ class Amiga:
         name = self.mem.r_cstr(self.reg(R.A1)) if self.reg(R.A1) < 0xE00000 else ''
         self.calls.append('OpenLibrary')
         ok = check(name == 'graphics.library', 'OpenLibrary name pointer (a1) does not point at "graphics.library": %r' % name)
+        ok = ok and not self.open_fail
         self.gfx_open += 1 if ok else 0
         self.scratch(GFX if ok else 0); self.ret()
 
@@ -792,7 +798,10 @@ def main():
     ap.add_argument('--frames', type=int, default=800, help='frames to run before pressing the mouse button')
     ap.add_argument('--png', help='write the rendered frame as a PNG')
     ap.add_argument('--snap', type=int, default=700, help='frame to render and check')
-    ap.add_argument('--alloc-fast', action='store_true', help='make AllocMem return fast RAM (failure path)')
+    failure = ap.add_mutually_exclusive_group()
+    failure.add_argument('--alloc-fail', action='store_true', help='AllocMem returns NULL before takeover')
+    failure.add_argument('--open-fail', action='store_true', help='graphics.library cannot be opened')
+    failure.add_argument('--alloc-fast', action='store_true', help='make AllocMem return fast RAM (failure path)')
     ap.add_argument('--ntsc', action='store_true', help='262 line frame: the PAL-only intro must still run and exit, not hang')
     ap.add_argument('--loader-chip', action='store_true', help='let the loader honour the chip hunk flag')
     args = ap.parse_args()
@@ -812,7 +821,7 @@ def main():
     logo = logo_planes[0]
     font = (ROOT / 'assets/font.raw').read_bytes()
 
-    a = Amiga(exe, args.loader_chip, args.alloc_fast)
+    a = Amiga(exe, args.loader_chip, args.alloc_fast, args.alloc_fail, args.open_fail)
     a.consts = source_equs()
     snap_frame = min(args.snap, args.frames - 1)
     # Every frame, the wireframe buffer the Copper is showing must equal the reference frame
@@ -853,17 +862,13 @@ def main():
 
     # ---------------------------------------------------------------- exit state
     print('exit path')
-    if args.alloc_fast:
-        check(a.cpu.r_reg(R.D0) == 20, 'alloc failure must return RETURN_FAIL (20), got %d' % a.cpu.r_reg(R.D0))
-        check(not a.allocs, 'memory leaked after failed chip allocation')
-        check(a.gfx_open == 0, 'graphics.library left open')
-        check('LoadView' not in a.calls, 'display was taken over although allocation failed')
-        finish()
-        return
     if not ok:
         finish(); return
     c = a.cpu
-    check(c.r_reg(R.D0) == 0, 'return code d0 = %d, expected 0' % c.r_reg(R.D0))
+    startup_failure = args.alloc_fast or args.alloc_fail or args.open_fail
+    expected_return = 20 if startup_failure else 0
+    check(c.r_reg(R.D0) == expected_return,
+          'return code d0 = %d, expected %d' % (c.r_reg(R.D0), expected_return))
     for i in range(1, 8):
         check(c.r_reg(R.D0 + i) == a.sentinel_regs[i - 1], 'd%d not preserved' % i)
     for i in range(7):
@@ -872,6 +877,20 @@ def main():
     check(a.nest_forbid == 0 and a.nest_disable == 0, 'Forbid/Disable nesting not balanced')
     check(not a.allocs, 'chip memory leaked: %s' % {hex(k): v for k, v in a.allocs.items()})
     check(a.gfx_open == 0, 'graphics.library not closed')
+    if startup_failure:
+        expected_calls = ['OpenLibrary']
+        if not args.open_fail:
+            expected_calls += ['AllocMem']
+            if args.alloc_fast:
+                expected_calls += ['TypeOfMem', 'FreeMem']
+            expected_calls += ['CloseLibrary']
+        check(a.calls == expected_calls,
+              'startup failure calls %s, expected %s' % (a.calls, expected_calls))
+        check((a.dmacon, a.intena, a.adkcon) == a.init,
+              'startup failure changed chipset control state')
+        check(not a.loadviews and not a.latches and not a.frame_marks,
+              'startup failure took over the display, audio or frame loop')
+        finish(); return
     check(a.loadviews == [0, a.view], 'LoadView calls %s, expected [NULL, old view]' % a.loadviews)
     check(mem.r32(CUSTOM + 0x80) == a.copinit, 'COP1LC is not the system copinit list ($%X)' % mem.r32(CUSTOM + 0x80))
     i_dm, i_ie, i_ak = a.init

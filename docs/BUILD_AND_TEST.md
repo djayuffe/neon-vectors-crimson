@@ -28,6 +28,8 @@ Install the optional Musashi binding with `python3 -m pip install machine68k`.
 ```sh
 python3 tools/emu_test.py --frames 3200 --snap 1850  # all scenes and full song loop
 python3 tools/emu_test.py --loader-chip             # loader places DMA hunk in chip RAM
+python3 tools/emu_test.py --open-fail               # graphics.library unavailable
+python3 tools/emu_test.py --alloc-fail              # AllocMem returns NULL
 python3 tools/emu_test.py --alloc-fast              # reject non-chip allocation; exit 20
 python3 tools/emu_test.py --ntsc --frames 100        # PAL wait must not hang on NTSC
 python3 tools/emu_test.py --png docs/screenshot.png  # refresh rendered preview

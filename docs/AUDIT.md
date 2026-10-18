@@ -17,6 +17,15 @@ status and integration plan.
 The test harness is still a partial hardware model. Physical-machine timing,
 Kickstart behaviour and perceptual audio acceptance remain open release checks.
 
+## Startup failure coverage follow-up (2026-10-18)
+
+The harness now injects missing graphics.library and NULL AllocMem returns in
+addition to non-chip allocation. Every startup failure must preserve registers
+and stack, return 20, release owned resources, leave chipset state unchanged and
+perform exactly the expected cleanup calls. Failure paths previously skipped
+register and stack checks. New negative tests deliberately clobber a restored
+register and omit CloseLibrary, requiring the corresponding diagnostics.
+
 ## Current verification (2026-10-17)
 
 - VASM 2.0f: classic 68000 executable, 3 hunks, 96,572 bytes.

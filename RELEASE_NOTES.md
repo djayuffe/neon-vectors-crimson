@@ -1,5 +1,12 @@
 # Release notes
 
+## Startup failure verification
+
+- Inject graphics.library open failure and NULL memory allocation independently.
+- Apply register, stack and resource-balance assertions to unsuccessful startup.
+- Require unchanged hardware state and the exact failure cleanup call sequence.
+- Prove the checks reject a clobbered register and an omitted library close.
+
 ## Crimson correctness and tooling revision
 
 - Correct single-playfield sprite priority in hardware and the reference renderer.
