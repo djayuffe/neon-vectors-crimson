@@ -18,8 +18,8 @@ never deletes it. Build flags restrict output to classic 68000/Kickstart hunks.
 all asset files, including missing assets. Validation runs before assembly; a
 changed asset is checked before assembly. This small executable is validated and
 assembled on every build so edits sharing a coarse filesystem timestamp cannot
-reuse an unchecked binary. `make release` runs clean,
-build, reproducibility and manifest in order, including when invoked with `-j`.
+reuse an unchecked binary. `make release` verifies the reviewed manifest, then runs clean, build, host
+regressions, static mutations and reproducibility in order, including when invoked with `-j`.
 
 ## Machine-code checks
 
@@ -64,3 +64,17 @@ Genuine Kickstart and physical PAL OCS/ECS acceptance remain to be performed for
 this revision. Historical FS-UAE observations are not fresh validation of changed
 audio or beam timing. NTSC support and the proposed AGA renderer are not release
 features.
+
+## Distribution candidate
+
+After reviewing changes, run `make manifest`, commit them, and run `make dist`.
+Distribution requires `machine68k`: the gate executes a full 3,200-frame music/scene
+loop, the chip-loader scenario and NTSC escape check before packaging.
+Release checks fail on a stale manifest rather than rewriting it. Packaging requires
+a clean committed checkout and produces `build/neon_vectors_crimson.zip` with the
+executable, Amiga Shell instructions, full source revision and payload checksums.
+Fixed ZIP metadata makes repeated packaging of the same inputs byte-identical.
+The executable entry has executable permissions; no ROMs or toolchain are included.
+
+`make dist` is a packaging gate, not physical-machine certification. Complete the
+hardware and listening acceptance checks before publishing a final hardware release.

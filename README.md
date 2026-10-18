@@ -75,7 +75,7 @@ make verify-repro    # deterministic generation AND checked-in asset freshness
 make mutants         # deliberate source faults must be rejected
 make emutest         # requires: python3 -m pip install machine68k
 make emu-mutants     # slower behavioural mutation tests
-make release         # ordered clean/build/reproducibility/manifest pipeline
+make release         # verify manifest, build, regressions, mutations and reproducibility
 ```
 
 For the full visual section cycle and song wrap:
@@ -122,3 +122,17 @@ using empty samples are rejected during validation.
 - [Audit findings](docs/AUDIT.md)
 - [Experimental AGA status](README_AGA.md)
 - [Release history](RELEASE_NOTES.md)
+
+## Distribution candidate
+
+After reviewing changes, run `make manifest`, commit them, and run `make dist`.
+Distribution requires `machine68k`: the gate executes a full 3,200-frame music/scene
+loop, the chip-loader scenario and NTSC escape check before packaging.
+Release checks fail on a stale manifest rather than rewriting it. Packaging requires
+a clean committed checkout and produces `build/neon_vectors_crimson.zip` with the
+executable, Amiga Shell instructions, full source revision and payload checksums.
+Fixed ZIP metadata makes repeated packaging of the same inputs byte-identical.
+The executable entry has executable permissions; no ROMs or toolchain are included.
+
+`make dist` is a packaging gate, not physical-machine certification. Complete the
+hardware and listening acceptance checks before publishing a final hardware release.

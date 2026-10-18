@@ -72,7 +72,7 @@ FORCE:
 $(TARGET): FORCE $(ASSETS) $(SRCS) | build
 	$(PYTHON) tools/validate.py
 	@if [ -n "$(VASM)" ]; then A="$(VASM)"; elif [ -x "$(LOCAL_VASM)" ]; then A="$(LOCAL_VASM)"; else echo "No VASM. Run 'make toolchain' after supplying tools/vendor/vasm, or install vasmm68k_mot."; exit 2; fi; \
-	$$A $(VASMFLAGS) -o $@ src/main.s
+	"$$A" $(VASMFLAGS) -o $@ src/main.s
 
 hunkcheck: $(TARGET)
 	$(PYTHON) tools/hunkcheck.py $(TARGET)
@@ -92,10 +92,20 @@ distclean: clean
 # "clean all" in one recipe must not overlap under -j.
 .NOTPARALLEL: release
 
+# A release verifies reviewed checksums; only the explicit manifest target writes them.
 release:
+	$(PYTHON) tools/make_manifest.py --check
 	$(MAKE) clean
 	$(MAKE) all
+	$(MAKE) test
+	$(MAKE) mutants
 	$(MAKE) verify-repro
-	$(MAKE) manifest
 
-.PHONY: FORCE test all assets validate mutants verify-repro emutest emu-mutants manifest toolchain hunkcheck clean distclean release
+# Package only a clean source revision after all release gates pass.
+dist: release
+	$(PYTHON) tools/emu_test.py --frames 3200 --snap 1850
+	$(PYTHON) tools/emu_test.py --loader-chip --frames 100 --snap 80
+	$(PYTHON) tools/emu_test.py --ntsc --frames 100
+	$(PYTHON) tools/package_release.py
+
+.PHONY: dist FORCE test all assets validate mutants verify-repro emutest emu-mutants manifest toolchain hunkcheck clean distclean release

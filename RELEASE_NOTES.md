@@ -1,5 +1,12 @@
 # Release notes
 
+## Production candidate packaging
+
+- Release builds verify reviewed checksums and run host regressions and static mutations.
+- Reproducible distribution ZIP includes executable, instructions, source revision and checksums.
+- Packaging rejects uncommitted changes and malformed executable input.
+- Assembler paths containing spaces work in Make and have regression coverage.
+
 ## Effects, graphics and music polish
 
 - Layered logo ripple, rose/copper subtitle, ember floor and bright bar cores.

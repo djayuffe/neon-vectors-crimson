@@ -127,7 +127,10 @@ class BuildTests(unittest.TestCase):
                 shutil.copytree(root/name, work/name,
                                 ignore=shutil.ignore_patterns('bin', 'vendor', '__pycache__'))
             shutil.copy(root/'Makefile', work/'Makefile')
-            env = dict(os.environ, VASM=assembler, PYTHONDONTWRITEBYTECODE='1')
+            spaced = work/'assembler tools'/'vasmm68k_mot'
+            spaced.parent.mkdir()
+            spaced.symlink_to(Path(assembler).resolve())
+            env = dict(os.environ, VASM=str(spaced), PYTHONDONTWRITEBYTECODE='1')
 
             def run(*args):
                 return subprocess.run(args, cwd=work, env=env, capture_output=True, text=True)
@@ -256,3 +259,33 @@ class EffectsMusicTests(unittest.TestCase):
                 self.assertLessEqual(max(abs(data[i]-data[i-1]) for i in range(size)), 40)
         self.assertEqual(count, 8)
         self.assertEqual(offset, len(mod))
+
+
+class ReleasePackageTests(unittest.TestCase):
+    def test_archive_is_reproducible_and_checksums_every_payload(self):
+        import hashlib
+        import tempfile
+        import zipfile
+        import package_release
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            binary = root/'neon_vectors'
+            binary.write_bytes(HunkTests.header+HunkTests.section+words(0x3F2))
+            first, second = root/'first.zip', root/'second.zip'
+            one = package_release.write_package(binary, first, 'a'*40)
+            two = package_release.write_package(binary, second, 'a'*40)
+            self.assertEqual(one, two)
+            self.assertEqual(first.read_bytes(), second.read_bytes())
+            with zipfile.ZipFile(first) as archive:
+                self.assertEqual(set(archive.namelist()),
+                                 {'neon_vectors', 'README.txt', 'BUILD_INFO.txt', 'SHA256SUMS'})
+                for line in archive.read('SHA256SUMS').decode().splitlines():
+                    digest, name = line.split('  ', 1)
+                    self.assertEqual(hashlib.sha256(archive.read(name)).hexdigest(), digest)
+                self.assertEqual(archive.getinfo('neon_vectors').external_attr >> 16, 0o100755)
+                self.assertIn('a'*40, archive.read('BUILD_INFO.txt').decode())
+            with self.assertRaises(ValueError):
+                package_release.write_package(binary, first, 'main')
+            binary.write_bytes(b'broken')
+            with self.assertRaises(ValueError):
+                package_release.write_package(binary, first, 'a'*40)

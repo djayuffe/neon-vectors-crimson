@@ -17,6 +17,27 @@ status and integration plan.
 The test harness is still a partial hardware model. Physical-machine timing,
 Kickstart behaviour and perceptual audio acceptance remain open release checks.
 
+## Production release audit (2026-10-18)
+
+The release command now verifies the reviewed source manifest before cleaning or
+building; it no longer blesses unexpected changes by rewriting checksums. It runs
+host regressions, static mutation checks and deterministic asset verification.
+Distribution additionally requires the full 3,200-frame machine-code run plus
+chip-loader and NTSC escape scenarios; missing machine68k fails this gate.
+A negative check confirms a stale manifest stops the release and leaves the old
+executable intact.
+
+Assembler paths containing spaces are quoted and exercised by the parallel-build
+regression. `make dist` produces a self-contained ZIP from a clean committed
+revision, with executable permissions, run instructions, source identity and
+SHA-256 checksums. Archive metadata is fixed, payloads are stored, and output is
+replaced atomically. Tests cover repeatability, checksums, permissions, provenance
+and rejection of malformed executable input. The CLI rejects a dirty checkout.
+
+The demo code, effects and music are unchanged by this packaging revision. Physical
+Amiga timing, genuine Kickstart acceptance and listening remain the final release
+limitations rather than being implied by a successful host build.
+
 ## Effects and music revision (2026-10-18)
 
 The logo uses a fundamental/second-harmonic ripple and warm rose/copper accents.
