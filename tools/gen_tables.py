@@ -62,8 +62,8 @@ def bar_colors():
             out.append(lerp(colour, 0xFFF, 0.4 if pk == 4 else 0.12) if pk >= 3 else colour)
     return out
 
-MID_PALETTE = [0x001, 0xAAD, 0x3FC, 0x3FC, 0x779, 0xFFF, 0x3FC, 0x3FC,
-               0x39F, 0x39F, 0x9FF, 0x9FF, 0x39F, 0x39F, 0x9FF, 0x9FF]
+MID_PALETTE = [0x001, 0x89A, 0x6DF, 0x6DF, 0x456, 0xDDE, 0x6DF, 0x6DF,
+               0x57B, 0x57B, 0xBDF, 0xBDF, 0x57B, 0x57B, 0xBDF, 0xBDF]
 # index = plane0 + 2*plane1 + 4*plane2 + 8*plane3:
 #   1 mid star | 4 far star | 5 near star | planes 1 or 3 set: object shades (1: wire / shade 1,
 #   3 only: shade 2, 1 and 3: shade 3), so an object always hides the stars behind it.
@@ -87,24 +87,24 @@ def copper():
     # Logo band, y 8..71: a 16 colour picture whose palette is in the Copper header. Every row
     # recolours the background (COLOR00) and the face colour (COLOR04: a white-to-orange metal
     # gradient) and has a BPLCON1 move that UpdateWave rewrites every frame.
-    face = [(0.0, 0xFFF), (0.25, 0xFE8), (0.55, 0xFB3), (1.0, 0xE52)]
-    bg = [(0.0, 0x002), (1.0, 0x214)]
+    face = [(0.0, 0xFFF), (0.25, 0xFEC), (0.55, 0xFB6), (1.0, 0xC43)]
+    bg = [(0.0, 0x001), (1.0, 0x211)]
     for i in range(64):
         ent.append((8 + i, [('COLOR00', ramp(bg, i / 63)), ('COLOR04', ramp(face, max(0.0, min(1.0, (i - 4) / 36)))), ('BPLCON1', 0x88)]))
     ent.append((72, None))                                   # animated raster slot, then the wave reset
     # Middle band, y 76..195: mid-distance star colour plus a soft glow behind.
-    ent.append((76, [('COLOR00', 0x001), ('COLOR01', 0xAAD)]))
-    mid = [(0.0, 0x001), (0.5, 0x024), (1.0, 0x001)]
+    ent.append((76, [('COLOR00', 0x001), ('COLOR01', 0x89A)]))
+    mid = [(0.0, 0x001), (0.5, 0x012), (1.0, 0x001)]
     for i in range(1, 15):
         ent.append((76 + 8 * i, [('COLOR00', ramp(mid, i / 14))]))
     # Scroller strip, y 197..218: frame lines, dark bar, gradient text colour.
     ent.append((196, [('COLOR00', 0x001)]))
-    ent.append((197, [('COLOR00', 0x6CF)]))
-    ent.append((198, [('COLOR00', 0x124)]))
-    sc = [(0.0, 0x7EF), (0.5, 0xFFF), (1.0, 0x5BE)]
+    ent.append((197, [('COLOR00', 0xB43)]))
+    ent.append((198, [('COLOR00', 0x211)]))
+    sc = [(0.0, 0xFC9), (0.5, 0xFFF), (1.0, 0xD75)]
     for i in range(8):
         ent.append((200 + 2 * i, [('COLOR01', ramp(sc, i / 7))]))
-    ent.append((218, [('COLOR00', 0x6CF)]))
+    ent.append((218, [('COLOR00', 0xB43)]))
     ent.append((219, [('COLOR00', 0x001)]))
     # Copper-bar floor, y 222..255: one COLOR00 move per row; UpdateBars repaints them each frame.
     fb = floor_base()
@@ -152,7 +152,7 @@ def wave_tab():
 BALL_SIZES = (16, 12, 8)             # near, mid, far; each drawn centred in a 16 pixel wide sprite
 SPR_PALETTE = [                      # three shades (dark, mid, bright) for each pair of sprites
     [0xA50, 0xFB3, 0xFFD],           # sprites 0,1: the nearest balls
-    [0x924, 0xE5A, 0xFCE],
+    [0x711, 0xD43, 0xFC9],
     [0x146, 0x4AF, 0xCEF],
     [0x113, 0x35A, 0x8BE]]           # sprites 6,7: the farthest balls
 

@@ -1,5 +1,12 @@
 # Release notes
 
+## Authentic Amiga visual identity
+
+- Unified gold/copper, ice-cyan and crimson palette across logo, vectors, sprites and text.
+- Native 3x5 machine labels and chamfered pixel corner details in the procedural logo.
+- Quieter starfield background and a warmer, higher-contrast scroller strip.
+- Rewritten scene-greeting scroller and exact-length text reference in the test renderer.
+
 ## Production candidate packaging
 
 - Release builds verify reviewed checksums and run host regressions and static mutations.

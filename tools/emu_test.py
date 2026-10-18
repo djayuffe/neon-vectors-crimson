@@ -1035,7 +1035,7 @@ def main():
     for x, y, cl in stars:
         if cl & 1: setpix(e2, x, y)
         if cl & 2: setpix(e0, x, y)
-    tb = bytes(mem.r_block(a.sym('scroll_text'), 400)).split(b'\0')[0]
+    tb = bytes(mem.r_block(a.sym('scroll_text'), a.sym('scroll_text_end') - a.sym('scroll_text'))).split(b'\0')[0]
     shifts = sn['shifts']
     check(shifts == (n - 1) // 2, 'scroller advanced %d pixels in %d frames, expected %d' % (shifts, n - 1, (n - 1) // 2))
     def stream_bit(kk, row):
@@ -1078,8 +1078,8 @@ def main():
     check(pbl[44 + 8][4] == 0xFFF, 'logo face colour at its top row is $%03X, expected white' % pbl[44 + 8][4])
     check(pbl[44 + 50][4] != pbl[44 + 8][4], 'the logo face colour has no vertical gradient')
     check(all(pbl[44 + 100][k] == gen_tables.MID_PALETTE[k] for k in range(1, 16)), 'the middle band palette is not loaded below the logo')
-    check(pbl[44 + 100][1] == 0xAAD, 'middle band mid-star colour is $%03X, expected $AAD' % pbl[44 + 100][1])
-    check(all(pbl[44 + 100][i] == 0x3FC for i in (2, 3, 6, 7)), 'wireframe colours (2, 3, 6, 7) differ')
+    check(pbl[44 + 100][1] == 0x89A, 'middle band mid-star colour is $%03X, expected $89A' % pbl[44 + 100][1])
+    check(all(pbl[44 + 100][i] == 0x6DF for i in (2, 3, 6, 7)), 'wireframe colours (2, 3, 6, 7) differ')
     # ---- sprite ring: the eight buffers exactly, and the sprite palette
     sin_tab = [int(round(127 * math.sin(2 * math.pi * i / 256))) for i in range(256)]
     prev_cx = equ('MID_CX') + ((sin_tab[spin_phase(n - 2) & 255] * equ('WIRE_SWAY')) >> 7) if n >= 2 else equ('MID_CX')

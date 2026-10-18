@@ -17,6 +17,24 @@ status and integration plan.
 The test harness is still a partial hardware model. Physical-machine timing,
 Kickstart behaviour and perceptual audio acceptance remain open release checks.
 
+## Visual identity revision (2026-10-18)
+
+The logo now includes native-pixel 3x5 machine labels and chamfered corner brackets.
+Gold/copper lettering, cyan geometry and crimson framing replace unrelated accent
+colours across the display. Star brightness ramps and the midnight background are
+quieter; the scroller is cream/gold on oxblood and the warm sprite pair is ruby.
+The original procedural UBER identity and classic hardware layout remain intact.
+
+The scrolling greeting is rewritten without invented historic credits, and the
+reference renderer reads its exact symbol span rather than an arbitrary 400-byte
+window. Artwork is still generated deterministically and uses the same four-plane
+memory layout. An initial machine-code render was visually reviewed before the
+full acceptance run. The 3,200-frame run passes, including all eight scenes, the
+visual loop and the full song loop; the worst CPU cost remains 110,730 cycles and
+the minimum star margin remains 3,520 cycles in the partial hardware model.
+All 14 host tests, 33 static mutations, loader-chip and NTSC escape checks pass.
+The final machine-code render was reviewed and saved as the README screenshot.
+
 ## Production release audit (2026-10-18)
 
 The release command now verifies the reviewed source manifest before cleaning or

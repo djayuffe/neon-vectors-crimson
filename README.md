@@ -2,7 +2,8 @@
 
 A source-complete PAL Amiga demo: three nested wireframes, a perspective starfield,
 eight orbiting sprite balls, a layered, rippling metal logo and a scrolling message over a
-glowing red, orange and pink Copper-bar floor. A generated four-channel tracker tune plays
+glowing red, orange and pink Copper-bar floor. The visual identity pairs gold and
+copper lettering with ice-cyan vectors, crimson framing and native-pixel machine labels. A generated four-channel tracker tune plays
 through Paula. Press the **left mouse button** to return to the system.
 
 Crimson is a variant of Uber Cracking Service’s *Neon Vectors*. The implementation
@@ -115,6 +116,7 @@ using empty samples are rejected during validation.
 ## Code and documentation
 
 - [Architecture and ownership](docs/ARCHITECTURE.md)
+- [Art direction and colour roles](docs/ART_DIRECTION.md)
 - [Graphics and scene data](docs/GFX.md)
 - [Music and Paula](docs/MUSIC.md)
 - [Build and acceptance checks](docs/BUILD_AND_TEST.md)

@@ -20,7 +20,7 @@ W, H = 320, 64
 SS = 3                       # supersampling per axis
 
 PALETTE = [0x001, 0x100, 0x631, 0x963, 0xFC4, 0xFE9, 0xFFC, 0xFFF,
-           0x424, 0x212, 0x624, 0xA46, 0xE79, 0xFCD, 0xD42, 0xFFF]
+           0x422, 0x211, 0x624, 0xA46, 0xE79, 0xFCD, 0xD42, 0xFFF]
 
 # ---- 5x7 glyphs (only the letters this logo needs) -------------------------------------------
 GLYPHS = {
@@ -89,6 +89,27 @@ def letter(ch, ox, oy):
 
 def sample_field(prims, x, y):
     return min(p(x, y) for p in prims)
+
+
+# Compact 3x5 machine lettering, drawn directly on the native pixel grid.
+MICRO = {
+    'N': ('101','111','111','111','101'), 'E': ('111','100','110','100','111'),
+    'O': ('111','101','101','101','111'), 'C': ('111','100','100','100','111'),
+    'R': ('110','101','110','101','101'), 'I': ('111','010','010','010','111'),
+    'M': ('101','111','111','101','101'), 'S': ('111','100','111','001','111'),
+    'P': ('110','101','110','100','100'), 'A': ('010','101','111','101','101'),
+    'L': ('100','100','100','100','111'), '5': ('111','100','111','001','111'),
+    '0': ('111','101','101','101','111'), 'H': ('101','101','111','101','101'),
+    'Z': ('111','001','010','100','111'),
+}
+
+
+def micro_text(img, text, x, y, colour=12):
+    for n, char in enumerate(text):
+        for yy, row in enumerate(MICRO[char]):
+            for xx, bit in enumerate(row):
+                if bit == '1':
+                    img[y+yy][x+n*4+xx] = colour
 
 
 # ---- rendering -----------------------------------------------------------------------------------
@@ -189,7 +210,21 @@ def build():
                         continue
                     if 0 <= yb + yy < H and img[yb + yy][xp] == 0:
                         img[yb + yy][xp] = (col if yy not in (0,) else 13) if yy < 3 else 10
-    # --- frame rules and spark pixels
+    # Small raster-machine labels and chamfered corner brackets, not vector overlays.
+    micro_text(img, 'NEON', 24, 4, 13)
+    micro_text(img, 'CRIMSON', 269, 4, 13)
+    micro_text(img, 'PAL', 22, 51)
+    micro_text(img, '50HZ', 283, 51)
+    for side in (-1, 1):
+        def px(x):
+            return x if side < 0 else W-1-x
+        for y0, direction in ((3, 1), (60, -1)):
+            for k in range(7):
+                img[y0][px(12+k)] = 14
+                img[y0+direction*k][px(11)] = 11
+            img[y0+direction][px(12)] = 13
+
+    # --- frame rules and restrained specular spark pixels
     for x in range(20, W - 20):
         img[1][x] = 14
         img[62][x] = 14
