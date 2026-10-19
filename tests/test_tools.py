@@ -262,6 +262,22 @@ class EffectsMusicTests(unittest.TestCase):
         self.assertEqual(len({tuple(colours[i:i+256]) for i in range(0,2048,256)}), 8)
         self.assertTrue(all(0 <= colour <= 0x555 for colour in colours))
 
+    def test_sprite_easing_joins_both_paths_without_a_snap(self):
+        import gen_tables as g
+        from emu_test import ref_orbit
+        paths, tilts = g.orbit_transitions(), g.tilt_transitions()
+        self.assertEqual(len(paths), 4096)
+        self.assertEqual(len(tilts), 256)
+        for scene in range(8):
+            for ball in range(8):
+                start = (scene*32*8+ball)*2
+                old = ref_orbit((scene-1)&7,32*ball)
+                self.assertTrue(all(abs(paths[start+axis]-old[axis]) <= 1 for axis in (0,1)))
+                end = ((scene*32+31)*8+ball)*2
+                self.assertEqual(tuple(paths[end:end+2]), ref_orbit(scene,(93+32*ball)&255))
+            self.assertEqual(tilts[scene*32+31], g.RING_TILTS[scene])
+            self.assertLessEqual(abs(tilts[scene*32]-g.RING_TILTS[(scene-1)&7]),1)
+
     def test_music_voices_arrangement_and_sample_endpoints(self):
         root = Path(__file__).resolve().parents[1]
         mod = (root/'assets/neon.mod').read_bytes()

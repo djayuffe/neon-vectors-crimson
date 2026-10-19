@@ -190,3 +190,25 @@ drawn. The model does not include DMA contention or blitter duration. These
 numbers measure improvements in the host model; they do not establish the
 physical machine's maximum or replace genuine Kickstart/hardware acceptance.
 The final gallery includes an executable-rendered energy-cage frame at 1,148.
+
+## Eased scene joins and paired link decay (2026-10-18)
+
+All eight sprite path/tilt joins, including Afterglow back into Ignition, pass a
+2,100-frame execution with every-frame sprite-page and wireframe comparisons.
+The table endpoint regression checks that each blend starts within one unit of
+the previous path and reaches the destination exactly. Full-cycle sprite bounds
+remain clear of the logo artwork and scroller. The paired edge reference covers
+the entire nonzero music envelope and clears at zero.
+
+All 20 host tests, 33 static mutations, deterministic assets and the 100-frame
+chip-loader run pass. Passing baselines precede targeted mutations for skipped
+orbit easing, skipped tilt easing, suppressed links and links stuck at full
+strength; each is caught with the expected rendering diagnostic.
+
+Average modeled work is 85,150 cycles, worst 109,402 (77% of a PAL frame), with
+2,852 cycles minimum starfield margin. The run issues 50,592 line blits, compares
+2,098 displayed object buffers and verifies 482 audio starts across 350 rows.
+Transition lookup data adds 8 KiB plus 512 bytes of ordinary RAM, with no change
+to chip allocation or Copper instruction count. The host model still excludes
+DMA contention and blitter duration; real hardware acceptance remains open.
+Gallery and energy-cage images were refreshed from this executable run.

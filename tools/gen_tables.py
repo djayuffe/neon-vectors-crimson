@@ -253,6 +253,31 @@ def orbit_point(scene, k):
 def orbit_banks():
     return [value for scene in range(8) for k in range(256) for value in orbit_point(scene,k)]
 
+RING_TILTS = (40, 24, 56, 44, 32, 64, 20, 48)
+
+def orbit_transitions():
+    """Scene x 32 transition frames x eight balls x (x,z), smoothstep eased."""
+    out = []
+    for scene in range(8):
+        for step in range(32):
+            t = (step+1)/32
+            ease = t*t*(3-2*t)
+            for ball in range(8):
+                angle = (3*step+32*ball)&255
+                old, new = orbit_point((scene-1)&7,angle), orbit_point(scene,angle)
+                out += [round(a+(b-a)*ease) for a,b in zip(old,new)]
+    return out
+
+def tilt_transitions():
+    out = []
+    for scene in range(8):
+        for step in range(32):
+            t = (step+1)/32
+            ease = t*t*(3-2*t)
+            out.append(round(RING_TILTS[(scene-1)&7]+(RING_TILTS[scene]-RING_TILTS[(scene-1)&7])*ease))
+    return out
+
+
 AURORA_COLOURS = (0x421, 0x413, 0x135, 0x431, 0x324, 0x145, 0x511, 0x432)
 
 def aurora_banks():
@@ -327,6 +352,8 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     tables = {'copper': copper, 'sintab': sintab, 'recip_star': recip_star, 'recip_wire': recip_wire,
            'floor_base': lambda: words(floor_base()), 'bar_colors': lambda: words(bar_colors(), 8),
+           'orbit_transitions': lambda: words([v & 65535 for v in orbit_transitions()]),
+           'tilt_transitions': lambda: words(tilt_transitions()),
            'aurora_banks': lambda: words(aurora_banks()),
            'orbit_banks': lambda: words([v & 65535 for v in orbit_banks()]),
            'wave_tab': lambda: words(wave_tab()), 'wave_banks': lambda: words(wave_banks()), 'palette': header_palette,

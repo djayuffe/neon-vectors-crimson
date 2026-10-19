@@ -20,8 +20,8 @@ The aurora turns fifteen existing Copper background bands into moving interferen
 waves. Sprite paths change between a circle, ellipse, figure-eight, fourfold swell,
 three-petal orbit, Lissajous weave, interference curve and five-petal orbit.
 These effects use the existing display planes and sprite pages. Music onsets also
-flash eight connecting edges between the independently tumbling cubes, making
-an elastic cage during the three full-ensemble scenes. The 68000 renderer skips
+drive up to eight connecting edges between the independently tumbling cubes, making
+an elastic cage that decays in opposing pairs during the three full-ensemble scenes. Sprite paths and tilt ease into each scene over 32 frames. The 68000 renderer skips
 hidden objects, shares matrix intermediates and batches fixed Copper writes.
 
 

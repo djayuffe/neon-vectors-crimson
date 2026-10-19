@@ -1,5 +1,13 @@
 # Release notes
 
+## Smoother motion and musical decay
+
+- Ease sprite paths and base tilt across every scene join over 32 frames.
+- Preserve spin, perspective, depth sorting and sprite size selection during joins.
+- Decay energy links in opposing pairs rather than cutting all eight at once.
+- Add transition endpoint regressions and missing-easing mutation checks.
+- No additional chip memory or Copper instructions.
+
 ## More effect work per 68000 cycle
 
 - Music-triggered elastic cage adds eight links between the tumbling cubes.

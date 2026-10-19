@@ -774,10 +774,37 @@ def ref_wire(k, verts, edges, consts, pulse=0):
         if not settings[5] & (1 << (e // 12)):
             continue
         pix.update(ref_bresenham(proj[i][0], proj[i][1], proj[j][0], proj[j][1]))
-    if settings[5] & 5 == 5 and pulse >= 8:
-        for i in range(8):
+    if settings[5] & 5 == 5 and pulse > 0:
+        for i in (0,7,3,4,1,6,2,5)[:2*((pulse+3)//4)]:
             pix.update(ref_bresenham(*proj[i], *proj[14+i]))
     return pix, proj
+
+
+def ref_orbit(scene, angle, radius=70):
+    th = angle & 255
+    RING_R = radius
+    cos = lambda a: round(127*math.sin(2*math.pi*((a+64)&255)/256))
+    sin = lambda a: round(127*math.sin(2*math.pi*(a&255)/256))
+    t = 2*math.pi*(th & 255)/256
+    c, sn = math.cos(t), math.sin(t)
+    if scene == 0:
+        x0, z0 = (RING_R * cos(th)) >> 7, (RING_R * sin(th)) >> 7
+    else:
+        if scene == 1: x, z = c, .55*sn
+        elif scene == 2: x, z = .85*c, .65*math.sin(2*t)
+        elif scene == 3:
+            radius = .8+.2*math.cos(4*t)
+            x, z = radius*c, radius*sn
+        elif scene == 4:
+            radius = .72+.28*math.cos(3*t)
+            x, z = radius*c, radius*sn
+        elif scene == 5: x, z = .68*math.cos(2*t), .68*math.sin(3*t)
+        elif scene == 6: x, z = .7*c+.3*math.cos(3*t), .7*sn-.3*math.sin(3*t)
+        else:
+            radius = .8+.2*math.sin(5*t)
+            x, z = radius*c, radius*sn
+        x0, z0 = round(69*x), round(69*z)
+    return x0,z0
 
 
 def ref_ring(f, wire_cx, consts):
@@ -786,32 +813,23 @@ def ref_ring(f, wire_cx, consts):
     tab = [int(round(127 * math.sin(2 * math.pi * i / 256))) for i in range(256)]
     sin = lambda a: tab[a & 255]
     cos = lambda a: tab[(a + 64) & 255]
-    tilt = RING_TILTS[(f >> 8) & 7] + (sin(2 * f) >> 4)
+    scene, step = (f>>8)&7, f&255
+    base_tilt = RING_TILTS[scene]
+    if step < 32:
+        t = (step+1)/32
+        blend = t*t*(3-2*t)
+        old = RING_TILTS[(scene-1)&7]
+        base_tilt = round(old+(base_tilt-old)*blend)
+    tilt = base_tilt + (sin(2 * f) >> 4)
     st, ct, sr, cr = sin(tilt), cos(tilt), sin(f), cos(f)
     A, B, C, Dm, F = cr, (st * sr) >> 7, sr, -((st * cr) >> 7), ct
     balls = []
     for i in range(8):
-        th = 3 * f + 32 * i
-        scene = (f >> 8) & 7
-        t = 2*math.pi*(th & 255)/256
-        c, sn = math.cos(t), math.sin(t)
-        if scene == 0:
-            x0, z0 = (RING_R * cos(th)) >> 7, (RING_R * sin(th)) >> 7
-        else:
-            if scene == 1: x, z = c, .55*sn
-            elif scene == 2: x, z = .85*c, .65*math.sin(2*t)
-            elif scene == 3:
-                radius = .8+.2*math.cos(4*t)
-                x, z = radius*c, radius*sn
-            elif scene == 4:
-                radius = .72+.28*math.cos(3*t)
-                x, z = radius*c, radius*sn
-            elif scene == 5: x, z = .68*math.cos(2*t), .68*math.sin(3*t)
-            elif scene == 6: x, z = .7*c+.3*math.cos(3*t), .7*sn-.3*math.sin(3*t)
-            else:
-                radius = .8+.2*math.sin(5*t)
-                x, z = radius*c, radius*sn
-            x0, z0 = round(69*x), round(69*z)
+        angle = (3*f+32*i)&255
+        x0,z0 = ref_orbit(scene,angle,RING_R)
+        if step < 32:
+            old_x,old_z = ref_orbit((scene-1)&7,angle,RING_R)
+            x0,z0 = round(old_x+(x0-old_x)*blend), round(old_z+(z0-old_z)*blend)
         xx = (x0 * A + z0 * B) >> 7
         yy = (x0 * C + z0 * Dm) >> 7
         zz = (z0 * F) >> 7

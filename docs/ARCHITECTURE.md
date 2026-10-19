@@ -147,3 +147,16 @@ value-word displacements. Both retain the same row phases and Copper layout;
 the saved loop/pointer work increases the margin before the single-buffered
 starfield is displayed. Music-triggered bridge lines run after time-critical
 single-buffered work, using already projected vertices and the blitter line path.
+
+## Scene-join tables
+
+During the first 32 frames of a scene, `UpdateSprites` selects one precomputed
+set of eight world-space positions instead of the general closed-path bank.
+The data uses the same current spin phase, blending the previous and destination
+paths with smoothstep weighting. `UpdateSection` selects the matching eased tilt.
+Outside this interval the ordinary angle-indexed path is used. Both routes feed
+the same rotation, reciprocal projection, stable sort and sprite-page selector.
+
+Energy links use the existing music envelope to select 1–4 pairs; the edge list
+orders opposite corners together. A zero envelope bypasses the link pass. The
+hidden object band is cleared every frame, so reducing the count removes old links.

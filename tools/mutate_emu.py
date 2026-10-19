@@ -13,8 +13,17 @@ _workspace = tempfile.TemporaryDirectory(prefix='neon-emu-')
 M = Path(_workspace.name) / 'repo'
 
 MUTANTS = [
+    ('energy decay stuck at full strength', 'src/main.s',
+     '        lsr.w   #2,d0                      ; 1..4 opposing pairs',
+     '        moveq   #4,d0', 'wireframe'),
+    ('sprite orbit easing skipped', 'src/main.s',
+     '        cmp.w   #32,d1\n        bhs     .orbit_ready',
+     '        cmp.w   #0,d1\n        bhs     .orbit_ready', 'sprite ring'),
+    ('sprite tilt easing skipped', 'src/main.s',
+     '        cmp.w   #32,d2\n        bhs     .tilt_ready',
+     '        cmp.w   #0,d2\n        bhs     .tilt_ready', 'sprite ring'),
     ('music energy bridges suppressed', 'src/main.s',
-     '        cmp.w   #8,visual_pulse', '        cmp.w   #16,visual_pulse', 'wireframe'),
+     '        move.w  visual_pulse,d0            ; balanced pairs decay with the envelope', '        moveq   #0,d0', 'wireframe'),
     ('matrix shared product sign lost', 'src/main.s',
      '        move.w  d3,d0\n        move.w  cx,d1',
      '        neg.w   d3\n        move.w  d3,d0\n        move.w  cx,d1', 'wireframe'),

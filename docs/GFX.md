@@ -105,8 +105,11 @@ half frame speed. No additional Copper moves or bitplane fetches are required.
 
 ## Music-triggered energy bridges
 
-When both cubes are visible and the kick/snare/chime envelope is at least eight,
-eight additional lines connect corresponding outer and inner cube vertices.
+When both cubes are visible, the kick/snare/chime envelope selects two, four,
+six or eight connecting lines between corresponding outer and inner cube vertices.
+The order adds opposing pairs of cube corners, keeping the decay balanced.
+Envelope levels 1–4 select one pair, 5–8 two, 9–12 three and 13–15 all four;
+zero removes the links.
 Their independent rotations continuously reshape the resulting cage. The links
 are drawn into the same hidden wireframe buffer as the objects, so they inherit
 its tear-free swap and disappear on the next buffer clear after the envelope falls.
@@ -114,3 +117,12 @@ The full-ensemble scenes can now draw 44 edges; the other scenes keep their
 existing object selection. The projected endpoint bounds also bound every link.
 
 ![Music-triggered energy cage from the executable](energy-bridges.png)
+
+## Eased sprite scene joins
+
+For the first 32 frames of every movement, including the loop back to Ignition,
+world-space sprite paths blend from the previous scene with a smoothstep curve.
+The base tilt follows the same easing; ongoing spin, roll and tilt wobble continue.
+Precomputed eight-ball positions avoid per-ball multiplies for the blend. At the
+last transition frame the table equals the destination path exactly. Three depth
+sizes, stable sorting and normal projection remain active throughout.

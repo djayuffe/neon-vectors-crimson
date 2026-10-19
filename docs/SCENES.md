@@ -96,7 +96,13 @@ unchanged. The renderer checks every background band and sprite page each frame.
 Ignition, Constellation and Afterglow gain eight connections between corresponding
 vertices of the outer and inner cubes on strong musical cues. The independent
 rotations stretch and cross the links, giving each burst a different silhouette.
-The links flash during the upper half of the music light envelope; they share the
-object buffer and clear completely when the cue ends.
+The links decay from four opposing pairs to one as the music envelope falls,
+then clear completely at zero. They share the object buffer, avoiding trails.
 
 ![Energy bridges during Constellation](energy-bridges.png)
+
+Sprite paths and base tilt now ease between movements over 32 frames (0.64 seconds
+at PAL rate). Smoothstep weighting leaves the start and finish gently, while
+spin and roll keep moving. The same join handles Afterglow back into Ignition.
+The precomputed transition positions add 8 KiB of ordinary data and tilt easing
+adds 512 bytes; chip memory and Copper instruction count remain unchanged.
