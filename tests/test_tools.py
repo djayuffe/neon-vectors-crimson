@@ -283,6 +283,54 @@ class EffectsMusicTests(unittest.TestCase):
             self.assertEqual(tilts[scene*32+31], g.RING_TILTS[scene])
             self.assertLessEqual(abs(tilts[scene*32]-g.RING_TILTS[(scene-1)&7]),1)
 
+    def test_tracker_volume_slide_tick_rules_and_clamps(self):
+        from emu_test import ref_volume_frames
+        mod = bytearray((Path(__file__).resolve().parents[1]/'assets/neon.mod').read_bytes())
+        mod[1084:1084+1024] = bytes(1024)
+        mod[1084:1088] = bytes((1,252,0x1C,32))
+        for row,param in ((1,3),(3,0x40),(4,0xF3),(5,0x0F),(6,0)):
+            mod[1084+row*16:1088+row*16] = bytes((0,0,10,param))
+        mod[1084+7*16:1088+7*16] = bytes((0,0,12,32))
+        mod[1084+8*16:1088+8*16] = bytes((0,0,10,3))
+        mod[1084+9*16:1088+9*16] = bytes((0,0,10,0))
+        frames = ref_volume_frames(mod,60)
+        self.assertEqual([v[0] for v in frames[7:13]], [32,29,26,23,20,17])
+        self.assertEqual([v[0] for v in frames[13:19]], [17]*6)
+        self.assertEqual([v[0] for v in frames[19:25]], [17,21,25,29,33,37])
+        self.assertEqual([v[0] for v in frames[25:31]], [37,52,64,64,64,64])
+        self.assertEqual([v[0] for v in frames[31:37]], [64,49,34,19,4,0])
+        self.assertEqual([v[0] for v in frames[37:43]], [0]*6)
+        self.assertEqual([v[0] for v in frames[49:55]], [32,29,26,23,20,17])
+        self.assertEqual([v[0] for v in frames[55:61]], [17]*6)
+
+    def test_volume_slide_bounds_on_the_assembled_player(self):
+        import importlib.util
+        import os, shutil, subprocess, tempfile
+        root = Path(__file__).resolve().parents[1]
+        assembler = os.environ.get('VASM') or shutil.which('vasmm68k_mot')
+        if not assembler and (root/'tools/bin/vasmm68k_mot').is_file():
+            assembler = str(root/'tools/bin/vasmm68k_mot')
+        if not assembler or importlib.util.find_spec('machine68k') is None:
+            self.skipTest('tracker execution check needs machine68k and VASM')
+        with tempfile.TemporaryDirectory(prefix='neon-slide-bounds-') as folder:
+            work=Path(folder)
+            for name in ('tools','assets','src'):
+                shutil.copytree(root/name,work/name,ignore=shutil.ignore_patterns('bin','vendor','__pycache__'))
+            path=work/'assets/neon.mod'
+            mod=bytearray(path.read_bytes())
+            mod[1084:1084+1024]=bytes(1024)
+            mod[1084:1088]=bytes((1,252,0x1C,32))
+            for row,param in ((1,3),(3,0x40),(4,0xF3),(5,0x0F),(6,0)):
+                mod[1084+row*16:1088+row*16]=bytes((0,0,10,param))
+            mod[1084+7*16:1088+7*16]=bytes((0,0,12,32))
+            mod[1084+8*16:1088+8*16]=bytes((0,0,10,3))
+            mod[1084+9*16:1088+9*16]=bytes((0,0,10,0))
+            path.write_bytes(mod)
+            result=subprocess.run([sys.executable,str(work/'tools/emu_test.py'),'--frames','68','--snap','60'],
+                                  env=dict(os.environ,VASM=assembler),capture_output=True,text=True)
+            self.assertEqual(result.returncode,0,result.stdout+result.stderr)
+            self.assertIn('EMULATION TEST PASSED',result.stdout)
+
     def test_tracker_phrase_rests_and_loop_turnaround(self):
         from emu_test import ref_volume_rows
         root = Path(__file__).resolve().parents[1]

@@ -193,12 +193,12 @@ def build(kind):
         # The last movement's E7 dominant resolves into the opening A minor.
         if kind=='h' and chord==3:
             root, fifth, pad = 'E1','B1',['E2','G#2','B2']
-        # Bass attacks, octave/fifth pickups and explicit row-volume envelopes.
+        # Bass attacks, octave/fifth pickups and tick-level decay envelopes.
         hits = (0,8) if kind=='a' else (0,) if kind=='e' else (0,3,6,8,11,14)
         if rr in hits:
             note = fifth if rr in (6,14) else up(root) if rr==11 else root
             rows[r][0] = ev(S_BASS,note,0xC,50 if rr in (0,8) else 40)
-        elif rr in (1,4,7,9,12): rows[r][0] = ev(fx=0xC,param=25 if kind!='e' else 28)
+        elif rr in (1,4,7,9,12): rows[r][0] = ev(fx=0xA,param=4 if kind=='e' else 5 if rr in (1,9) else 3)
         elif rr in (2,5,10,13): rows[r][0] = ev(fx=0xC,param=12)
         if kind in ('d','f','g') and rr==15:
             rows[r][0] = ev(S_BASS,APPROACH[chord],0xC,30)
@@ -209,7 +209,7 @@ def build(kind):
                 index=(rr//step)%3
                 if kind=='d': index=(2-index)%3
                 rows[r][1]=ev(S_PAD,pad[index],0xC,(28 if rr%8==0 else 21) if kind!='e' else 24)
-            elif rr%step==step-1: rows[r][1]=ev(fx=0xC,param=14)
+            elif rr%step==step-1: rows[r][1]=ev(fx=0xA,param=2)
         else:
             motif=RESPONSE[chord] if kind=='f' else HOOK[chord]
             note=motif[rr//2]
@@ -219,7 +219,7 @@ def build(kind):
                 rows[r][1]=ev(S_LEAD,note,0xC,42 if rr%8==0 else 34) if note else ev(fx=0xC,param=0)
             elif note:
                 # Fade the same voice; an echo retrigger only answers selected phrases.
-                rows[r][1]=ev(S_LEAD,note,0xC,12) if kind=='g' and rr in (5,13) else ev(fx=0xC,param=18)
+                rows[r][1]=ev(S_LEAD,note,0xC,12) if kind=='g' and rr in (5,13) else ev(fx=0xA,param=4)
             else: rows[r][1]=ev(fx=0xC,param=0)
         # A restrained intro, full groove, breakdown and graduated final-bar fills.
         if kind!='e' or r>=48:

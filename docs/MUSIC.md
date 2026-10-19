@@ -22,7 +22,7 @@ These numerical checks do not replace listening to the resulting audio.
 ## Timing and supported commands
 
 At PAL 50 Hz and tracker BPM 125, one frame is one tracker tick. `F06` establishes
-six ticks per row. Implemented commands are `Cxx` (volume, clamped to 64) and
+six ticks per row. Implemented commands are `Axy` (tick volume slide), `Cxx` (volume, clamped to 64) and
 `F01..F1F` (speed). Arpeggios in this tune are explicit notes rather than effect 0.
 BPM changes, arpeggio effects, finetune, and period-only notes are unsupported and
 rejected by the asset validator. Sample-only events set default volume but do not
@@ -65,7 +65,7 @@ The pad adds a quiet third harmonic. Loop seams, signed PCM/DC balance and zero
 one-shot endpoints retain the asset quality checks. The final row explicitly
 zeros all four channel volumes before the next loop starts.
 
-All music still uses explicit notes, `Cxx` volume and `F06` speed. It needs no
+The music uses explicit notes, `A0x` decay, `Cxx` volume/cuts and `F06` speed. It needs no
 additional channels, runtime synthesis, BPM changes or unsupported tracker effects.
 The executable harness checks actual Paula volume words every frame, including
 volume-only rows, as well as DMA starts and reloads.
@@ -93,3 +93,20 @@ interrupt handler.
 The onset envelope drives the floor and logo separator brightness banks, while
 energy links decay in opposing pairs. The separator combines the cue with a slow
 128-frame scene-coloured glow; it no longer runs an independent white flash.
+
+## Tick-level volume slides
+
+`Axy` slides on ticks 1 through speed−1, leaving the row's first tick unchanged.
+At speed six this gives five 20 ms decay steps. The upper nibble adds volume when
+nonzero, taking priority over the lower nibble; otherwise the lower nibble
+subtracts volume. Values clamp to 0–64. `A00` does nothing, and a new row replaces
+the previous slide instead of carrying it into blank rows. These rules match the
+[ProTracker 2.3D replay reference](https://raw.githubusercontent.com/8bitbubsy/pt2-clone/master/src/pt2_replayer.c).
+
+Bass releases, pad tails and non-echo lead answers now use tick slides instead of
+an immediate row-volume step. Written rests still use `C00` for a definite cut.
+The player keeps four RAM volume words and four signed slide bytes, synchronized
+on note defaults, `Cxx` and every slide tick. It never reads back AUDxVOL: the
+[hardware register reference](https://www.amigadev.elowar.com/read/ADCD_2.1/Hardware_Manual_guide/node0060.html)
+marks these registers write-only. The static validator rejects the known readback
+fault, while execution checks both the RAM shadow and written Paula values.

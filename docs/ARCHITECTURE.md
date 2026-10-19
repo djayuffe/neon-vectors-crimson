@@ -160,3 +160,12 @@ the same rotation, reciprocal projection, stable sort and sprite-page selector.
 Energy links use the existing music envelope to select 1–4 pairs; the edge list
 orders opposite corners together. A zero envelope bypasses the link pass. The
 hidden object band is cleared every frame, so reducing the count removes old links.
+
+## Tracker tick effects
+
+`MOD_Tick` decodes rows on tick zero and executes `MOD_Slides` on later ticks.
+`MOD_Row` clears each channel's slide before decoding its new command. Axy stores
+a signed nibble-sized delta; the four-channel tick pass updates RAM volume words,
+clamps them to Paula's range and writes AUDxVOL. Note defaults and Cxx update the
+same RAM words. No audio hardware register is read back. The data costs twelve
+ordinary RAM bytes and adds no chip payload or audio channel.

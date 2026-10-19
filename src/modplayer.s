@@ -2,7 +2,7 @@
 ; NEON VECTORS row/tick ProTracker replay core.
 ;
 ; 4-channel M.K., PAL VBlank tick = 50 Hz = ProTracker BPM 125 tick rate.
-; Supported commands: Cxx volume, F01..F1F speed. The generated module uses F06.
+; Supported commands: Axy volume slide, Cxx volume, F01..F1F speed (song uses F06).
 ; Only CPU side work happens here, so it is safe to run with interrupts off.
 ;
 ; Paula channel registers are addressed through a1 = CUSTOM+AUD0LCH+channel*16:
@@ -53,6 +53,9 @@ MOD_Init:
         lea     30(a3),a3
         dbra    d7,.sptr
 
+        clr.l   mod_volumes
+        clr.l   mod_volumes+4
+        clr.l   mod_slides
         clr.b   mod_order
         clr.b   mod_row
         move.b  #5,mod_tick               ; force row 0 on the first frame
@@ -71,10 +74,42 @@ MOD_Tick:
         addq.b  #1,mod_tick
         move.b  mod_tick,d0
         cmp.b   mod_speed,d0
-        blo     .done
+        blo     .effects
         clr.b   mod_tick
         bsr     MOD_Row
+        rts
+.effects:
+        bsr     MOD_Slides
 .done:
+        rts
+
+; Axy affects ticks 1..speed-1, never the row's first tick.
+; Upper nibble takes priority if both are set. A00 and a new row clear the slide.
+MOD_Slides:
+        lea     mod_slides,a0
+        lea     mod_volumes,a2              ; Paula volume registers are write-only
+        lea     CUSTOM+AUD0LCH+8,a1
+        moveq   #3,d7
+.slide:
+        moveq   #0,d0
+        move.b  (a0)+,d0
+        ext.w   d0
+        beq     .next
+        move.w  (a2),d1                    ; read the RAM shadow, never AUDxVOL
+        add.w   d0,d1
+        bpl     .positive
+        clr.w   d1
+.positive:
+        cmp.w   #64,d1
+        bls     .write
+        moveq   #64,d1
+.write:
+        move.w  d1,(a2)
+        move.w  d1,(a1)
+.next:
+        addq.l  #2,a2
+        lea     16(a1),a1
+        dbra    d7,.slide
         rts
 
 MOD_Row:
@@ -101,6 +136,8 @@ MOD_Row:
         move.w  d6,d7
         lsl.w   #4,d7
         lea     0(a1,d7.w),a1             ; a1 = this channel's Paula registers
+        lea     mod_slides,a3
+        clr.b   0(a3,d6.w)                ; effects do not leak into another row
 
         move.l  (a2)+,d0
         move.l  d0,d1
@@ -151,6 +188,10 @@ MOD_Row:
         moveq   #64,d5
 .volok:
         move.w  d5,8(a1)
+        lea     mod_volumes,a3
+        move.w  d6,d7
+        add.w   d7,d7
+        move.w  d5,0(a3,d7.w)
 
         tst.w   d1
         beq     .effects
@@ -194,6 +235,18 @@ MOD_Row:
         move.w  d1,0(a3,d5.w)
 
 .effects:
+        cmp.w   #$0A,d3
+        bne     .fxc
+        move.w  d4,d5
+        lsr.w   #4,d5
+        bne     .slide_ready              ; volume-up nibble has priority
+        move.w  d4,d5
+        andi.w  #15,d5
+        neg.w   d5
+.slide_ready:
+        lea     mod_slides,a3
+        move.b  d5,0(a3,d6.w)
+.fxc:
         cmp.w   #$0C,d3
         bne     .fxf
         cmp.w   #64,d4
@@ -201,6 +254,10 @@ MOD_Row:
         moveq   #64,d4
 .cok:
         move.w  d4,8(a1)
+        lea     mod_volumes,a3
+        move.w  d6,d7
+        add.w   d7,d7
+        move.w  d4,0(a3,d7.w)
 .fxf:
         cmp.w   #$0F,d3
         bne     .next
@@ -277,6 +334,8 @@ MOD_Stop:
 mod_sample_ptrs:  ds.l 31
 mod_loop_ptrs:    ds.l 4
 mod_loop_lens:    ds.w 4
+mod_volumes:      ds.w 4
+mod_slides:       ds.b 4
 mod_trigger_mask: dc.w 0
 mod_songlen:      dc.b 0
 mod_order:        dc.b 0

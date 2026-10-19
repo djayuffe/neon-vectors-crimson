@@ -69,7 +69,7 @@ results.append(M_('chipdata label used from code', 'src/main.s',
 results.append(M_('short branch bsr.s', 'src/main.s',
     '        bsr     MOD_Tick', '        bsr.s   MOD_Tick', 'short branch'))
 results.append(M_('symbolic indexed displacement too large', 'src/modplayer.s',
-    '        move.w  d5,8(a1)\n\n        tst.w   d1', '        move.w  d5,AUD0VOL(a6,d7.w)\n\n        tst.w   d1', 'brief extension'))
+    '        move.w  d5,8(a1)', '        move.w  d5,AUD0VOL(a6,d7.w)', 'brief extension'))
 results.append(M_('numeric indexed displacement 200', 'src/main.s',
     '        move.w  0(a0,d0.w),d1', '        move.w  200(a0,d0.w),d1', 'brief extension'))
 results.append(M_('PC-relative destination', 'src/main.s',
@@ -120,6 +120,9 @@ results.append(M_('CopyMem LVO wrong', 'src/hardware.i',
     'LVO_CopyMem       EQU -624', 'LVO_CopyMem       EQU -618', 'memory/copy/scheduling'))
 results.append(M_('Forbid LVO wrong', 'src/hardware.i',
     'LVO_Forbid        EQU -132', 'LVO_Forbid        EQU -130', 'memory/copy/scheduling'))
+results.append(M_('Paula volume readback', 'src/modplayer.s',
+    '        move.w  (a2),d1                    ; read the RAM shadow, never AUDxVOL',
+    '        move.w  (a1),d1', 'write-only Paula volume'))
 results = [r for r in results if r is not None]
 print()
 print(f'mutations caught: {sum(1 for r in results if r)}/{len(results)}')

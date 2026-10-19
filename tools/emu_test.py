@@ -734,21 +734,37 @@ def ref_bresenham(x1, y1, x2, y2):
     return pts
 
 
-def ref_volume_rows(module, count):
-    """Paula volumes after each row, including sample-less cuts and envelopes."""
+def ref_volume_frames(module, count):
+    """Independent per-tick Paula volume trace, including Axy, Cxx and row resets."""
     order = module[952:952+module[950]]
-    levels, rows = [0]*4, []
-    for row in range(count):
-        base = 1084+order[(row//64)%len(order)]*1024+(row%64)*16
-        for channel in range(4):
-            b0,b1,b2,b3 = module[base+channel*4:base+channel*4+4]
-            sample = (b0&0xF0)|(b2>>4)
-            if sample:
-                levels[channel] = min(64,module[20+(sample-1)*30+25])
-            if b2&15 == 12:
-                levels[channel] = min(64,b3)
-        rows.append(tuple(levels))
-    return rows
+    levels, slides, frames = [0]*4, [0]*4, [(0,0,0,0)]
+    row, tick, speed = 0,0,6
+    for frame in range(1,count+1):
+        if tick == 0:
+            base = 1084+order[(row//64)%len(order)]*1024+(row%64)*16
+            for channel in range(4):
+                b0,b1,b2,b3 = module[base+channel*4:base+channel*4+4]
+                sample, effect = (b0&0xF0)|(b2>>4), b2&15
+                slides[channel] = 0
+                if sample:
+                    levels[channel] = min(64,module[20+(sample-1)*30+25])
+                if effect == 12:
+                    levels[channel] = min(64,b3)
+                elif effect == 10:
+                    slides[channel] = (b3>>4) if b3>>4 else -(b3&15)
+                elif effect == 15 and 1 <= b3 <= 31:
+                    speed = b3
+            row += 1
+        else:
+            levels = [max(0,min(64,volume+step)) for volume,step in zip(levels,slides)]
+        frames.append(tuple(levels))
+        tick = (tick+1)%speed
+    return frames
+
+
+def ref_volume_rows(module, count):
+    frames = ref_volume_frames(module,count*6)
+    return [frames[1+row*6] for row in range(count)]
 
 
 def ref_wire(k, verts, edges, consts, pulse=0):
@@ -949,7 +965,7 @@ def main():
     wire_frames = [0]
     aurora_reference = gen_tables.aurora_banks()
     separator_reference = gen_tables.raster_banks()
-    volume_reference = ref_volume_rows(mod,(args.frames+5)//6+1)
+    volume_reference = ref_volume_frames(mod,args.frames)
     gallery_frames = {128+256*scene for scene in range(8)} | {1148}
     if args.gallery_dir:
         args.gallery_dir.mkdir(parents=True, exist_ok=True)
@@ -957,10 +973,13 @@ def main():
         if n < 3 or wire_fail:
             return
         if not volume_fail:
-            expected = volume_reference[(n-2)//6]
+            expected = volume_reference[n-1]
             actual = tuple(a.mem.r16(CUSTOM+0xA8+16*channel) for channel in range(4))
             if actual != expected:
                 volume_fail.append('tracker row-volume envelope differs at frame %d: %s != %s' % (n,actual,expected))
+            shadow = tuple(a.mem.r16(a.sym('mod_volumes')+2*channel) for channel in range(4))
+            if shadow != expected:
+                volume_fail.append('tracker row-volume envelope shadow differs at frame %d' % n)
         eq = a.consts
         if not wave_fail:
             frame = n-1

@@ -87,7 +87,8 @@ after about 122.88 seconds at 50 Hz, giving repeat scenes different musical acce
 Music uses eight generated instruments: saw bass, pulse lead, pad, kick, snare,
 closed hat, open hat and chime. Eight distinct patterns form the introduction,
 groove, hook, response, breakdown, rebuild, finale and turnaround. Samples
-are signed 8-bit PCM with zero-valued silence. This is a deliberately bounded MOD
+are signed 8-bit PCM with zero-valued silence. Tick-level volume slides soften
+the bass, pad and lead releases. This is a deliberately bounded MOD
 player, not a general ProTracker implementation; see [music](docs/MUSIC.md).
 Audition with `make music-preview` (requires `openmpt123`), or
 [open the MOD in your tracker](assets/neon.mod).

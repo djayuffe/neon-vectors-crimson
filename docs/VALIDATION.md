@@ -260,3 +260,26 @@ the breakdown to -23.74 dBFS in the hook. Two consecutive `make music-preview`
 runs safely replace the existing WAV. Invalid durations and source-MOD output
 paths are rejected without modifying the module. These measurements and a host
 mix preview do not replace listening on Paula or a full Amiga emulator.
+
+## Tick-level tracker articulation (2026-10-18)
+
+The corrected Axy replay core passes 6,400 frames, comparing all four written
+Paula volume words and their RAM shadows on every tick. The run verifies 1,508
+audio starts across 1,067 rows and 6,398 displayed wireframe buffers, covering two
+music loops and the message wrap. A dedicated 68-frame executable fixture checks
+down/up slides, first-tick exclusion, upper-nibble priority, both clamps, blank-row
+reset and A00 stopping an active decay. Hard-coded tick traces also validate the
+independent Python reference.
+
+All 23 tests and 34 static mutations pass, with deterministic assets and the
+100-frame chip-loader check. Passing baselines precede behavioral mutations for
+skipped slide ticks, leaked row effects and a stale Cxx volume shadow; all fail
+with the expected envelope diagnostics. A static mutation catches readback from
+write-only Paula volume registers. Note defaults and Cxx update the same RAM
+shadow as slide ticks; no hardware volume register is read by the player.
+
+Average modeled work is 85,879 cycles, worst 110,246 (78% of a PAL frame), with
+2,746 cycles minimum starfield margin. The new state uses twelve ordinary RAM
+bytes; module size and chip allocation remain unchanged. The host mix peaks at
+-7.42 dBFS, RMS -24.33 dBFS, with no clipped samples. Genuine Kickstart, DMA
+contention, blitter duration and physical/listening acceptance remain open.

@@ -13,9 +13,16 @@ _workspace = tempfile.TemporaryDirectory(prefix='neon-emu-')
 M = Path(_workspace.name) / 'repo'
 
 MUTANTS = [
+    ('tracker volume shadow stale after Cxx', 'src/modplayer.s',
+     '        move.w  d4,0(a3,d7.w)', '        nop', 'row-volume envelope'),
+    ('tracker tick slides skipped', 'src/modplayer.s',
+     '        bsr     MOD_Slides', '        nop', 'row-volume envelope'),
+    ('tracker slide row reset removed', 'src/modplayer.s',
+     '        clr.b   0(a3,d6.w)                ; effects do not leak into another row',
+     '        nop', 'row-volume envelope'),
     ('tracker volume-only commands ignored', 'src/modplayer.s',
-     '.effects:\n        cmp.w   #$0C,d3',
-     '.effects:\n        tst.w   d1\n        beq     .fxf\n        cmp.w   #$0C,d3', 'row-volume envelope'),
+     '.fxc:\n        cmp.w   #$0C,d3',
+     '.fxc:\n        tst.w   d1\n        beq     .fxf\n        cmp.w   #$0C,d3', 'row-volume envelope'),
     ('separator music cue lost', 'src/main.s',
      '        move.w  visual_pulse,d1\n        lsr.w   #2,d1',
      '        clr.w   d1\n        lsr.w   #2,d1', 'separator glow'),

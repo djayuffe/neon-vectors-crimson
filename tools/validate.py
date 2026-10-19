@@ -123,7 +123,7 @@ for label in ('copper:','screen:','logo_data:','font_data:','audio_silence:','mo
     check(pos>chip_pos,f'{label[:-1]} is not placed in chipdata')
 
 # Generated music may only use commands implemented by this compact replay.
-supported_fx={0x0,0xC,0xF}
+supported_fx={0x0,0xA,0xC,0xF}
 if len(mod)>=1084:
     sl=mod[950]; pats=max(mod[952:952+sl],default=0)+1
     for p in range(pats):
@@ -137,6 +137,12 @@ if len(mod)>=1084:
                     check(b3==0,f'pattern {p} event {e}: arpeggio effect is unsupported')
                 if fx==0xF:
                     check(1<=b3<=31,f'pattern {p} event {e}: unsupported BPM/zero F{b3:02X}')
+
+# Tick effects must use RAM state: Paula AUDxVOL is write-only.
+player_source=(ROOT/'src/modplayer.s').read_text()
+slide_body=player_source.split('MOD_Slides:',1)[1].split('MOD_Row:',1)[0] if 'MOD_Slides:' in player_source else ''
+check(bool(re.search(r'lea\s+mod_volumes,a2',slide_body)), 'tracker slides need a RAM volume shadow')
+check(not re.search(r'move\.w\s+\(a1\),',slide_body), 'tracker slides read write-only Paula volume')
 
 # --- 68000 encoding legality ------------------------------------------------
 # VASM is the authority for encodings (make assembles the program); these rules

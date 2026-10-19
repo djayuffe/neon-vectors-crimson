@@ -1,5 +1,13 @@
 # Release notes
 
+## Smoother tracker articulation
+
+- Axy tick-level volume slides for bass releases, pad tails and lead decay.
+- Explicit rests and loop-boundary cuts remain available through C00.
+- RAM volume shadows respect Paula’s write-only audio registers.
+- Executable tests cover first-tick timing, direction priority, clamps and row reset.
+- Static and behavioral mutations catch hardware readback and stale effect state.
+
 ## Tracker arrangement and rhythm revision
 
 - Eight unique musical patterns with a melodic hook, answer, breakdown and E7 turnaround.
