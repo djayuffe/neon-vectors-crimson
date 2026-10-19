@@ -13,6 +13,11 @@ _workspace = tempfile.TemporaryDirectory(prefix='neon-emu-')
 M = Path(_workspace.name) / 'repo'
 
 MUTANTS = [
+    ('music energy bridges suppressed', 'src/main.s',
+     '        cmp.w   #8,visual_pulse', '        cmp.w   #16,visual_pulse', 'wireframe'),
+    ('matrix shared product sign lost', 'src/main.s',
+     '        move.w  d3,d0\n        move.w  cx,d1',
+     '        neg.w   d3\n        move.w  d3,d0\n        move.w  cx,d1', 'wireframe'),
     ('aurora interference phase corrupted', 'src/main.s',
      '        addi.w  #26,d0                    ; thirteen phase steps per band',
      '        addi.w  #24,d0                    ; wrong phase step', 'aurora interference'),
@@ -42,8 +47,8 @@ MUTANTS = [
      '        move.w  sy,d0\n        neg.w   d0\n        move.w  d0,12(a2)', '        move.w  sy,d0\n        move.w  d0,12(a2)', 'wireframe'),
     ('star erase missing (trails)', 'src/main.s',
      '        and.b   d1,0(a0,d2.w)', '        nop', 'plane 0'),
-    ('scroller shifts one longword too many', 'src/main.s',
-     'moveq   #SCREEN_W_BYTES/4-1,d6', 'moveq   #SCREEN_W_BYTES/4,d6', 'plane 0'),
+    ('scroller starts one longword too far left', 'src/main.s',
+     'lea     SCREEN_W_BYTES(a0),a4', 'lea     SCREEN_W_BYTES-4(a0),a4', 'plane 0'),
     ('blitter DMA never enabled', 'src/main.s',
      'DMAF_COPPER|DMAF_BLITTER|DMAF_SPRITE),DMACON(a6)', 'DMAF_COPPER|DMAF_SPRITE),DMACON(a6)', 'blitter'),
     ('Copper wrap below line 255 missing', 'src/main.s',

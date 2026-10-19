@@ -90,3 +90,13 @@ changes; stars, vectors and sprite colours keep their contrast.
 Seven additional 1 KiB orbit banks and 4 KiB of aurora colours add 11 KiB of
 ordinary data. Copper instruction count, chip allocation and sprite artwork are
 unchanged. The renderer checks every background band and sprite page each frame.
+
+## Elastic energy cage
+
+Ignition, Constellation and Afterglow gain eight connections between corresponding
+vertices of the outer and inner cubes on strong musical cues. The independent
+rotations stretch and cross the links, giving each burst a different silhouette.
+The links flash during the upper half of the music light envelope; they share the
+object buffer and clear completely when the cue ends.
+
+![Energy bridges during Constellation](energy-bridges.png)

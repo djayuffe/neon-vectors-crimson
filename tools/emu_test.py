@@ -734,7 +734,7 @@ def ref_bresenham(x1, y1, x2, y2):
     return pts
 
 
-def ref_wire(k, verts, edges, consts):
+def ref_wire(k, verts, edges, consts, pulse=0):
     import math
     D, ZOFF, CX, CY, SWAY, ZOOM = consts
     tab = [int(round(127 * math.sin(2 * math.pi * i / 256))) for i in range(256)]
@@ -774,6 +774,9 @@ def ref_wire(k, verts, edges, consts):
         if not settings[5] & (1 << (e // 12)):
             continue
         pix.update(ref_bresenham(proj[i][0], proj[i][1], proj[j][0], proj[j][1]))
+    if settings[5] & 5 == 5 and pulse >= 8:
+        for i in range(8):
+            pix.update(ref_bresenham(*proj[i], *proj[14+i]))
     return pix, proj
 
 
@@ -903,7 +906,7 @@ def main():
     wire_fail, pulse_fail, ring_fail, wave_fail, aurora_fail = [], [], [], [], []
     wire_frames = [0]
     aurora_reference = gen_tables.aurora_banks()
-    gallery_frames = {128+256*scene for scene in range(8)}
+    gallery_frames = {128+256*scene for scene in range(8)} | {1148}
     if args.gallery_dir:
         args.gallery_dir.mkdir(parents=True, exist_ok=True)
     def wire_each_frame(n, bpl2):
@@ -945,7 +948,8 @@ def main():
         if args.gallery_dir and n in gallery_frames:
             snapshot = a.render()
             check_floor(snapshot,n-1,mod)
-            destination = args.gallery_dir/('scene-%d.png' % ((n-1)>>8))
+            name = 'energy-bridges.png' if n == 1148 else 'scene-%d.png' % ((n-1)>>8)
+            destination = args.gallery_dir/name
             write_snapshot(destination,snapshot)
             print('  gallery:',destination,flush=True)
         if not a.ready_verts:
@@ -953,7 +957,7 @@ def main():
             a.wv = [struct.unpack('>3h', a.mem.r_block(a.sym('verts') + 6 * i, 6)) for i in range(14)]
             eb = a.mem.r_block(a.sym('edges'), a.sym('edges_end') - a.sym('edges'))
             a.we = [(eb[i], eb[i + 1]) for i in range(0, len(eb), 2)]
-        pix, _ = ref_wire(n - 2, a.wv, a.we, (eq['WIRE_D'], eq['WIRE_ZOFF'], eq['MID_CX'], eq['MID_CY'], eq['WIRE_SWAY'], eq['WIRE_ZOOM']))
+        pix, _ = ref_wire(n - 2, a.wv, a.we, (eq['WIRE_D'], eq['WIRE_ZOFF'], eq['MID_CX'], eq['MID_CY'], eq['WIRE_SWAY'], eq['WIRE_ZOOM']), pulse=ref_visual_pulse(n-2,mod))
         outside = [p for p in pix if not (0 <= p[0] < 320 and eq['MID_Y0'] <= p[1] < eq['MID_Y0'] + eq['MID_H'])]
         if outside:
             wire_fail.append('frame %d: wireframe leaves its band: %s' % (n, outside[:3]))
@@ -1035,6 +1039,10 @@ def main():
     worst = max(work)
     print('  per-frame CPU work: avg %d, worst %d cycles (%.0f%% of a frame; no DMA contention or blitter time modelled)'
           % (sum(work) // len(work), worst, 100.0 * worst / FRAME_CYCLES))
+    for section in range(8):
+        samples = [cycles for frame, cycles in enumerate(work,1) if ((frame>>8)&7) == section]
+        if samples:
+            print('  scene %d CPU work: avg %d, worst %d cycles' % (section, sum(samples)//len(samples), max(samples)))
     check(worst < 0.85 * FRAME_CYCLES, 'the main loop needs %.0f%% of a frame: too close to dropping frames (and the 50 Hz tracker tick)' % (100.0 * worst / FRAME_CYCLES))
     # Single-buffered drawing must finish before the beam reaches what it draws. Stars are
     # drawn first and live in rows 76..195 (display line 120 and below); the scroller strip
@@ -1170,7 +1178,7 @@ def main():
     edges = [(eb[i], eb[i + 1]) for i in range(0, len(eb), 2)]
     wire_ok = n >= 3
     if wire_ok:
-        pix, proj = ref_wire(n - 2, verts, edges, (equ('WIRE_D'), equ('WIRE_ZOFF'), equ('MID_CX'), equ('MID_CY'), equ('WIRE_SWAY'), equ('WIRE_ZOOM')))
+        pix, proj = ref_wire(n - 2, verts, edges, (equ('WIRE_D'), equ('WIRE_ZOFF'), equ('MID_CX'), equ('MID_CY'), equ('WIRE_SWAY'), equ('WIRE_ZOOM')), pulse=ref_visual_pulse(n-2,mod))
         outside = [p for p in pix if not (0 <= p[0] < 320 and MID_Y0 <= p[1] < MID_Y0 + MID_H)]
         check(not outside, 'the wireframe leaves its %d line band: %s' % (MID_H, outside[:3]))
         for x, y in pix:
@@ -1256,8 +1264,8 @@ def main():
           'raster pulse differs from the expected ember-to-gold phase')
     print('  wireframe buffer verified on each of %d frames' % wire_frames[0])
     if ok0 and ok1 and ok2 and ok3 and not wire_fail:
-        print('  logo, %d stars, scroller and the %d-edge wireframe (%d pixels) match the reference models exactly'
-              % (len(stars), len(edges), len(pix) if wire_ok else 0))
+        print('  logo, %d stars, scroller and wireframe (%d pixels) match the reference models exactly'
+              % (len(stars), len(pix) if wire_ok else 0))
     if args.png:
         write_snapshot(args.png, sn)
         print('  wrote', args.png)

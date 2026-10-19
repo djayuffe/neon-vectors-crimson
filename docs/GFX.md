@@ -102,3 +102,15 @@ length remain intact. See [the captured scene gallery](SCENES.md).
 The middle-band background now uses a moving Copper interference curtain. The
 fifteen existing COLOR00 slots receive scene-specific precomputed colours at
 half frame speed. No additional Copper moves or bitplane fetches are required.
+
+## Music-triggered energy bridges
+
+When both cubes are visible and the kick/snare/chime envelope is at least eight,
+eight additional lines connect corresponding outer and inner cube vertices.
+Their independent rotations continuously reshape the resulting cage. The links
+are drawn into the same hidden wireframe buffer as the objects, so they inherit
+its tear-free swap and disappear on the next buffer clear after the envelope falls.
+The full-ensemble scenes can now draw 44 edges; the other scenes keep their
+existing object selection. The projected endpoint bounds also bound every link.
+
+![Music-triggered energy cage from the executable](energy-bridges.png)

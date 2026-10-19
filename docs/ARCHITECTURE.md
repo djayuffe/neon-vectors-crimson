@@ -93,7 +93,7 @@ first leaves the sync zone, then waits for line ≥ 300, the first line below th
 4. `UpdateStars` — erase, advance and redraw the 3D starfield;
 5. `UpdateScroller` — every second frame, shift the strip one pixel and insert a column;
 6. `MOD_Tick` — one tracker tick (a row every 6 ticks), after the time-critical drawing;
-7. `DrawWire` — clear the hidden buffer's band with the blitter, move/rotate/project, draw up to 36 edges
+7. `DrawWire` — clear the hidden buffer's band with the blitter, move/rotate/project, draw up to 44 edges including music-triggered links
    with the blitter;
 8. test the left mouse button.
 
@@ -129,3 +129,21 @@ addressing modes are used. Branches are not forced short.
 The intro takes Paula exclusively and leaves audio DMA off on exit: the previous audio-DMA state
 cannot be restored against changed channel registers without risking noise, so the restored
 `DMACON` mask (`DMAF_SYSTEM`, `$07F0`) excludes the four audio bits.
+
+## 68000 hot paths
+
+`CalcMatrix` inlines its signed fixed-point products and reuses `cz*sy` and
+`sz*sy`, retaining the original rounding order. Hidden objects bypass both matrix
+construction and vertex projection; each visible object explicitly selects its
+vertex/output ranges, so a scene transition rebuilds the data it needs.
+
+The scroller unrolls ten longword transfers per row. Predecrement addressing
+replaces explicit pointer steps and DBRA work while preserving the extend bit
+between ROXL operations. The row begins one longword beyond its right edge and
+finishes at its left edge.
+
+Logo updates process two Copper rows per iteration. Aurora updates use fixed
+value-word displacements. Both retain the same row phases and Copper layout;
+the saved loop/pointer work increases the margin before the single-buffered
+starfield is displayed. Music-triggered bridge lines run after time-critical
+single-buffered work, using already projected vertices and the blitter line path.

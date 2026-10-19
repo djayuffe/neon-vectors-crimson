@@ -19,7 +19,11 @@ are also checked against independent orbital calculations.
 The aurora turns fifteen existing Copper background bands into moving interference
 waves. Sprite paths change between a circle, ellipse, figure-eight, fourfold swell,
 three-petal orbit, Lissajous weave, interference curve and five-petal orbit.
-These effects use the existing display planes and sprite pages.
+These effects use the existing display planes and sprite pages. Music onsets also
+flash eight connecting edges between the independently tumbling cubes, making
+an elastic cage during the three full-ensemble scenes. The 68000 renderer skips
+hidden objects, shares matrix intermediates and batches fixed Copper writes.
+
 
 ## Build
 
@@ -63,7 +67,7 @@ Eight sections run for 256 frames each, looping after 2,048 frames (40.96 second
 | 7 — Afterglow | Three-object finale, gold/ruby floor |
 
 The 64 stars use perspective and three depth brightnesses. The wireframes have 22
-projected vertices and up to 36 blitter-drawn edges. Eight shaded hardware sprites
+projected vertices and up to 44 blitter-drawn edges, including music-triggered links. Eight shaded hardware sprites
 orbit on a depth-sorted ring. The 16-line text strip advances one pixel every two
 frames; the logo has independent horizontal scroll on each of its 64 rows.
 

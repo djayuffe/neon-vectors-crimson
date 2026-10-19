@@ -161,3 +161,32 @@ starfield deadline margin is 2,200 cycles. Copper instruction count remains 924
 words. No chip data is added; the new tables add 11 KiB of ordinary data. DMA
 contention, blitter duration, genuine Kickstart and physical hardware acceptance
 remain outside this host model. Gallery and cover images come from the final run.
+
+## 68000 optimization and energy bridges (2026-10-18)
+
+The matrix/scroller/effect revision passes 6,400 frames, including two complete
+music loops and the message wrap (snapshot 4,490). Its 155,088 line blits and 1,653
+audio starts over 1,067 rows match the references. A subsequent fixed-Copper
+batching revision passes 2,100 frames covering all eight scenes and their loop
+boundary; all 64 logo rows and fifteen aurora bands match on every frame. That
+final revision also passes all 19 host tests, 33 static mutations, reproducible
+assets and the 100-frame chip-loader check. Targeted mutation checks detect
+missing energy bridges, corrupt shared matrix products, shifted scroller row
+bounds, wrong rotation sign, lost buffering and corrupt logo/aurora phases.
+
+Comparable 2,100-frame runs give:
+
+| Modeled CPU measure | Previous version | Final optimized version |
+| --- | --- | --- |
+| Average frame | 95,549 cycles | 84,928 cycles |
+| Worst frame | 112,040 cycles | 109,720 cycles |
+| Worst share of PAL frame | 79% | 77% |
+| Average scroller stage | 5,836 cycles | 4,492 cycles |
+| Minimum starfield deadline margin | 2,200 cycles | 3,044 cycles |
+| Line blits | 47,952 | 50,416 |
+
+Average work falls about 11% while 2,464 additional music-triggered links are
+drawn. The model does not include DMA contention or blitter duration. These
+numbers measure improvements in the host model; they do not establish the
+physical machine's maximum or replace genuine Kickstart/hardware acceptance.
+The final gallery includes an executable-rendered energy-cage frame at 1,148.

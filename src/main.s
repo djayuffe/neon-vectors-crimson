@@ -449,12 +449,15 @@ UpdateWave:
         move.w  frame_no,d0
         lsl.w   #3,d0                      ; byte offset: four wave steps per frame
         andi.w  #510,d0
-        moveq   #LOGO_H-1,d7
+        moveq   #LOGO_H/2-1,d7
 .w:
-        move.w  0(a2,d0.w),14(a1)          ; BPLCON1 value for this row
+        move.w  0(a2,d0.w),14(a1)          ; first row of a two-row batch
         addq.w  #6,d0                      ; three entries per logo row
         andi.w  #510,d0
-        lea     16(a1),a1
+        move.w  0(a2,d0.w),30(a1)          ; second row, same phase progression
+        addq.w  #6,d0
+        andi.w  #510,d0
+        lea     32(a1),a1
         dbra    d7,.w
         rts
 
@@ -544,14 +547,49 @@ UpdateAurora:
         move.l  ptr_raster,a1
         lea     cop_aurora-cop_raster_color(a1),a1
         move.w  0(a2,d0.w),6(a1)
-        lea     12(a1),a1                 ; first band also reloads COLOR01
-        moveq   #13,d7
-.band:
+; Fixed Copper layout permits direct displacements instead of pointer/DBRA work.
         addi.w  #26,d0                    ; thirteen phase steps per band
         andi.w  #510,d0
-        move.w  0(a2,d0.w),6(a1)
-        addq.l  #8,a1
-        dbra    d7,.band
+        move.w  0(a2,d0.w),18(a1)
+        addi.w  #26,d0                    ; thirteen phase steps per band
+        andi.w  #510,d0
+        move.w  0(a2,d0.w),26(a1)
+        addi.w  #26,d0                    ; thirteen phase steps per band
+        andi.w  #510,d0
+        move.w  0(a2,d0.w),34(a1)
+        addi.w  #26,d0                    ; thirteen phase steps per band
+        andi.w  #510,d0
+        move.w  0(a2,d0.w),42(a1)
+        addi.w  #26,d0                    ; thirteen phase steps per band
+        andi.w  #510,d0
+        move.w  0(a2,d0.w),50(a1)
+        addi.w  #26,d0                    ; thirteen phase steps per band
+        andi.w  #510,d0
+        move.w  0(a2,d0.w),58(a1)
+        addi.w  #26,d0                    ; thirteen phase steps per band
+        andi.w  #510,d0
+        move.w  0(a2,d0.w),66(a1)
+        addi.w  #26,d0                    ; thirteen phase steps per band
+        andi.w  #510,d0
+        move.w  0(a2,d0.w),74(a1)
+        addi.w  #26,d0                    ; thirteen phase steps per band
+        andi.w  #510,d0
+        move.w  0(a2,d0.w),82(a1)
+        addi.w  #26,d0                    ; thirteen phase steps per band
+        andi.w  #510,d0
+        move.w  0(a2,d0.w),90(a1)
+        addi.w  #26,d0                    ; thirteen phase steps per band
+        andi.w  #510,d0
+        move.w  0(a2,d0.w),98(a1)
+        addi.w  #26,d0                    ; thirteen phase steps per band
+        andi.w  #510,d0
+        move.w  0(a2,d0.w),106(a1)
+        addi.w  #26,d0                    ; thirteen phase steps per band
+        andi.w  #510,d0
+        move.w  0(a2,d0.w),114(a1)
+        addi.w  #26,d0                    ; thirteen phase steps per band
+        andi.w  #510,d0
+        move.w  0(a2,d0.w),122(a1)
         rts
 
 ; ---------------------------------------------------------------------------
@@ -720,15 +758,38 @@ UpdateScroller:
         adda.l  #SCROLL_Y*SCREEN_W_BYTES,a0
         moveq   #SCROLL_H-1,d7
 .sc_row:
-        lea     SCREEN_W_BYTES-4(a0),a4    ; last longword of the row
-        moveq   #SCREEN_W_BYTES/4-1,d6
-        andi    #$EF,ccr                   ; X = 0 enters the rightmost longword
-.sc_long:
-        move.l  (a4),d1
+        lea     SCREEN_W_BYTES(a0),a4      ; one past the row
+        andi    #$EF,ccr                   ; X = 0 enters from the right
+        move.l  -(a4),d1
         roxl.l  #1,d1
         move.l  d1,(a4)
-        subq.l  #4,a4
-        dbra    d6,.sc_long
+        move.l  -(a4),d1
+        roxl.l  #1,d1
+        move.l  d1,(a4)
+        move.l  -(a4),d1
+        roxl.l  #1,d1
+        move.l  d1,(a4)
+        move.l  -(a4),d1
+        roxl.l  #1,d1
+        move.l  d1,(a4)
+        move.l  -(a4),d1
+        roxl.l  #1,d1
+        move.l  d1,(a4)
+        move.l  -(a4),d1
+        roxl.l  #1,d1
+        move.l  d1,(a4)
+        move.l  -(a4),d1
+        roxl.l  #1,d1
+        move.l  d1,(a4)
+        move.l  -(a4),d1
+        roxl.l  #1,d1
+        move.l  d1,(a4)
+        move.l  -(a4),d1
+        roxl.l  #1,d1
+        move.l  d1,(a4)
+        move.l  -(a4),d1
+        roxl.l  #1,d1
+        move.l  d1,(a4)
         lea     SCREEN_W_BYTES(a0),a0
         dbra    d7,.sc_row
 
@@ -1094,7 +1155,9 @@ DrawWire:
         addi.w  #WIRE_ZOFF,d0
         move.w  d0,wire_zoff
         lea     proj,a3
-; Cube: angles (x, y, z).
+; Cube: angles (x, y, z). Hidden objects need no matrix or projected vertices.
+        btst    #0,sec_mask+1
+        beq     .skip_cube_transform
         move.w  ang_x,d0
         move.w  ang_y,d1
         move.w  ang_z,d2
@@ -1103,7 +1166,12 @@ DrawWire:
         moveq   #8-1,d7
         move.w  sec_cube,d6
         bsr     TransformVerts
+.skip_cube_transform:
 ; Octahedron turns the other way.
+        btst    #1,sec_mask+1
+        beq     .skip_octa_transform
+        lea     verts+48,a1
+        lea     proj+32,a3
         move.w  ang_z,d0
         add.w   d0,d0
         move.w  ang_x,d1
@@ -1114,7 +1182,11 @@ DrawWire:
         moveq   #6-1,d7
         move.w  sec_octa,d6
         bsr     TransformVerts             ; a1 continues at the octahedron vertices
+.skip_octa_transform:
 ; Inner cube: the cube's vertex table again, small, tumbling on its own axes.
+        btst    #2,sec_mask+1
+        beq     .skip_inner_transform
+        lea     proj+56,a3
         move.w  ang_y,d0
         add.w   d0,d0
         move.w  ang_z,d1
@@ -1127,6 +1199,7 @@ DrawWire:
         move.w  sec_inner,d6
         bsr     TransformVerts
 
+.skip_inner_transform:
         bsr     BlitWait                   ; the clear must be done before lines go in
         move.w  #SCREEN_W_BYTES,BLTCMOD(a6)    ; registers every line shares: set once
         move.w  #SCREEN_W_BYTES,BLTDMOD(a6)
@@ -1153,6 +1226,17 @@ DrawWire:
         lea     edges_end,a5
         bsr     DrawEdges
 .no_inner:
+; Notes temporarily couple the independently rotating cubes into an elastic cage.
+        move.w  sec_mask,d0
+        andi.w  #5,d0
+        cmp.w   #5,d0
+        bne     .no_bridges
+        cmp.w   #8,visual_pulse
+        blo     .no_bridges
+        lea     bridge_edges,a4
+        lea     bridge_edges_end,a5
+        bsr     DrawEdges
+.no_bridges:
         rts
 
 ; a3 = proj, a4 = first edge, a5 = end of the edge range
@@ -1198,14 +1282,8 @@ UpdateSection:
         move.w  (a0)+,sec_mask
         rts
 
-; (d0.w * d1.w) >> 7, result in d0. Used for the 7 bit fixed point matrix.
-Mul7:
-        muls    d1,d0
-        asr.l   #7,d0
-        rts
-
 ; in: d0 = angle x, d1 = angle y, d2 = angle z (0..255 is a full turn)
-; out: mat[0..8] = Rz * Ry * Rx, scaled by 128.  Clobbers d0-d2, a2, a4 (a1 and a3 are
+; out: mat[0..8] = Rz * Ry * Rx, scaled by 128.  Clobbers d0-d4, a2, a4 (a1 and a3 are
 ; the caller's vertex pointers and must survive).
 CalcMatrix:
         lea     sintab,a4
@@ -1231,59 +1309,69 @@ CalcMatrix:
 ; m00 = cz*cy
         move.w  cz,d0
         move.w  cy,d1
-        bsr     Mul7
+        muls    d1,d0
+        asr.l   #7,d0
         move.w  d0,(a2)
 ; m01 = cz*sy*sx - sz*cx
         move.w  cz,d0
         move.w  sy,d1
-        bsr     Mul7
+        muls    d1,d0
+        asr.l   #7,d0
+        move.w  d0,d3
         move.w  sx,d1
-        bsr     Mul7
+        muls    d1,d0
+        asr.l   #7,d0
         move.w  d0,d2
         move.w  sz,d0
         move.w  cx,d1
-        bsr     Mul7
+        muls    d1,d0
+        asr.l   #7,d0
         sub.w   d0,d2
         move.w  d2,2(a2)
 ; m02 = cz*sy*cx + sz*sx
-        move.w  cz,d0
-        move.w  sy,d1
-        bsr     Mul7
+        move.w  d3,d0
         move.w  cx,d1
-        bsr     Mul7
+        muls    d1,d0
+        asr.l   #7,d0
         move.w  d0,d2
         move.w  sz,d0
         move.w  sx,d1
-        bsr     Mul7
+        muls    d1,d0
+        asr.l   #7,d0
         add.w   d0,d2
         move.w  d2,4(a2)
 ; m10 = sz*cy
         move.w  sz,d0
         move.w  cy,d1
-        bsr     Mul7
+        muls    d1,d0
+        asr.l   #7,d0
         move.w  d0,6(a2)
 ; m11 = sz*sy*sx + cz*cx
         move.w  sz,d0
         move.w  sy,d1
-        bsr     Mul7
+        muls    d1,d0
+        asr.l   #7,d0
+        move.w  d0,d4
         move.w  sx,d1
-        bsr     Mul7
+        muls    d1,d0
+        asr.l   #7,d0
         move.w  d0,d2
         move.w  cz,d0
         move.w  cx,d1
-        bsr     Mul7
+        muls    d1,d0
+        asr.l   #7,d0
         add.w   d0,d2
         move.w  d2,8(a2)
 ; m12 = sz*sy*cx - cz*sx
-        move.w  sz,d0
-        move.w  sy,d1
-        bsr     Mul7
+        move.w  d4,d0
         move.w  cx,d1
-        bsr     Mul7
+        muls    d1,d0
+        asr.l   #7,d0
         move.w  d0,d2
         move.w  cz,d0
         move.w  sx,d1
-        bsr     Mul7
+        muls    d1,d0
+        asr.l   #7,d0
         sub.w   d0,d2
         move.w  d2,10(a2)
 ; m20 = -sy
@@ -1293,12 +1381,14 @@ CalcMatrix:
 ; m21 = cy*sx
         move.w  cy,d0
         move.w  sx,d1
-        bsr     Mul7
+        muls    d1,d0
+        asr.l   #7,d0
         move.w  d0,14(a2)
 ; m22 = cy*cx
         move.w  cy,d0
         move.w  cx,d1
-        bsr     Mul7
+        muls    d1,d0
+        asr.l   #7,d0
         move.w  d0,16(a2)
         rts
 
@@ -1717,6 +1807,9 @@ edges:
         dc.b 14,16, 15,17, 18,20, 19,21 ;              along y
         dc.b 14,18, 15,19, 16,20, 17,21 ;              along z
 edges_end:
+bridge_edges:
+        dc.b 0,14, 1,15, 2,16, 3,17, 4,18, 5,19, 6,20, 7,21
+bridge_edges_end:
 
 ; Eight closed sprite paths, each 256 (x0,z0) pairs (tools/gen_tables.py orbit_banks).
 ring_tab:

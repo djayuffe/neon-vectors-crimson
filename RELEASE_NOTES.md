@@ -1,5 +1,13 @@
 # Release notes
 
+## More effect work per 68000 cycle
+
+- Music-triggered elastic cage adds eight links between the tumbling cubes.
+- Skip matrix and projection work for invisible objects.
+- Inline signed fixed-point matrix products and reuse common intermediates.
+- Unroll the ten-longword scroller shift and batch fixed Copper updates.
+- Add per-scene CPU reports and targeted optimization/effect mutation checks.
+
 ## Sculpted trajectories and Copper interference
 
 - Eight sprite paths: ellipse, figure-eight, petal curves, Lissajous weave and harmonic interference alongside the opening circle.
