@@ -14,6 +14,7 @@ and pixel alphabets.
 | Geometry | Ice cyan, with cooler secondary blue shades | `MID_PALETTE` |
 | Stars | Slate, grey-blue and near-white depth steps | Middle-band indices 4, 1 and 5 |
 | Text | Cream to white to gold, over oxblood | Copper scroller band |
+| Logo separator | Restrained scene-coloured glow with musical lift | `raster_banks` |
 | Floor | Ember base, scene-specific warm/cool bars, musical light accents | `floor_base`, `bar_colors` |
 | Sprite ring | Gold and ruby in front; cooler blues at distance | Sprite pair palettes |
 

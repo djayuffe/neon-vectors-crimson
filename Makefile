@@ -55,6 +55,11 @@ verify-repro:
 gallery: all
 	$(PYTHON) tools/emu_test.py --frames 2100 --snap 1850 --gallery-dir build/scene-gallery
 
+# Eight seconds of silent, actual executable output. Needs ffmpeg on PATH.
+preview: all
+	$(PYTHON) tools/emu_test.py --frames 1450 --snap 1148 --record-dir build/preview-frames
+	ffmpeg -hide_banner -loglevel error -y -framerate 50 -i build/preview-frames/frame-%04d.png -frames:v 400 -c:v libx264 -pix_fmt yuv420p -crf 18 -movflags +faststart build/demo-preview.mp4
+
 emutest:
 	$(PYTHON) tools/emu_test.py
 
@@ -111,4 +116,4 @@ dist: release
 	$(PYTHON) tools/emu_test.py --ntsc --frames 100
 	$(PYTHON) tools/package_release.py
 
-.PHONY: gallery dist FORCE test all assets validate mutants verify-repro emutest emu-mutants manifest toolchain hunkcheck clean distclean release
+.PHONY: preview gallery dist FORCE test all assets validate mutants verify-repro emutest emu-mutants manifest toolchain hunkcheck clean distclean release

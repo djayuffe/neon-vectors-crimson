@@ -891,6 +891,9 @@ def main():
     ap.add_argument('--frames', type=int, default=800, help='frames to run before pressing the mouse button')
     ap.add_argument('--png', help='write the rendered frame as a PNG')
     ap.add_argument('--gallery-dir', type=Path, help='render the midpoint of each scene into this directory')
+    ap.add_argument('--record-dir', type=Path, help='write consecutive executable-rendered PNG frames')
+    ap.add_argument('--record-start', type=int, default=1000, help='first recorded emulated frame')
+    ap.add_argument('--record-count', type=int, default=400, help='number of recorded frames')
     ap.add_argument('--snap', type=int, default=700, help='frame to render and check')
     failure = ap.add_mutually_exclusive_group()
     failure.add_argument('--alloc-fail', action='store_true', help='AllocMem returns NULL before takeover')
@@ -899,6 +902,10 @@ def main():
     ap.add_argument('--ntsc', action='store_true', help='262 line frame: the PAL-only intro must still run and exit, not hang')
     ap.add_argument('--loader-chip', action='store_true', help='let the loader honour the chip hunk flag')
     args = ap.parse_args()
+    if args.record_dir:
+        if args.record_start < 3 or args.record_count < 1 or args.record_start+args.record_count-1 > args.frames:
+            ap.error('recording must fit within the run, starting at frame 3 or later')
+        args.record_dir.mkdir(parents=True, exist_ok=True)
     if args.frames < 4 or args.snap < 3:
         ap.error('--frames must be at least 4 and --snap at least 3')
     global FRAME_LINES, FRAME_CYCLES
@@ -921,9 +928,10 @@ def main():
     # Every frame, the wireframe buffer the Copper is showing must equal the reference frame
     # exactly, including the rows outside the band. A single snapshot can miss stale pixels
     # that only occur in rows the object seldom reaches.
-    wire_fail, pulse_fail, ring_fail, wave_fail, aurora_fail = [], [], [], [], []
+    wire_fail, pulse_fail, ring_fail, wave_fail, aurora_fail, separator_fail = [], [], [], [], [], []
     wire_frames = [0]
     aurora_reference = gen_tables.aurora_banks()
+    separator_reference = gen_tables.raster_banks()
     gallery_frames = {128+256*scene for scene in range(8)} | {1148}
     if args.gallery_dir:
         args.gallery_dir.mkdir(parents=True, exist_ok=True)
@@ -950,6 +958,13 @@ def main():
                     aurora_fail.append('aurora interference differs at frame %d band %d' % (n,row))
                     break
                 copper += 12 if row == 0 else 8
+        if not separator_fail:
+            frame = n-1
+            energy = max(0,ref_visual_pulse(frame-1,mod)-1)>>2
+            index = (((frame>>8)&7)*4+energy)*32+((frame>>2)&31)
+            pointer = a.mem.r32(a.sym('ptr_raster'))
+            if a.mem.r16(pointer+2) != separator_reference[index]:
+                separator_fail.append('music separator glow differs at frame %d' % n)
         if not pulse_fail and a.mem.r16(a.sym('visual_pulse')) != ref_visual_pulse(n-1, mod):
             pulse_fail.append('music-driven light envelope differs at frame %d' % n)
         if not ring_fail:
@@ -970,6 +985,8 @@ def main():
             destination = args.gallery_dir/name
             write_snapshot(destination,snapshot)
             print('  gallery:',destination,flush=True)
+        if args.record_dir and args.record_start <= n < args.record_start+args.record_count:
+            write_snapshot(args.record_dir/('frame-%04d.png' % (n-args.record_start)), a.render())
         if not a.ready_verts:
             a.ready_verts = True
             a.wv = [struct.unpack('>3h', a.mem.r_block(a.sym('verts') + 6 * i, 6)) for i in range(14)]
@@ -1207,7 +1224,7 @@ def main():
         rows = sorted({i // 40 for i in bad})
         check(not bad, '%s differs from the expected image in %d bytes (rows %s...)' % (name, len(bad), rows[:6]))
         return not bad
-    for m_ in wire_fail+pulse_fail+ring_fail+wave_fail+aurora_fail:
+    for m_ in wire_fail+pulse_fail+ring_fail+wave_fail+aurora_fail+separator_fail:
         check(False, m_)
     ok0 = diff('plane 0 (logo + mid stars + scroller)', sn['planes'][0], e0)
     ok2 = diff('plane 2 (far + near stars)', sn['planes'][2], e2)
@@ -1278,8 +1295,8 @@ def main():
     for row in range(15):
         expected = gen_tables.aurora_banks()[((f>>8)&7)*256+(((f&510)//2+13*row)&255)]
         check(pbl[44+76+8*row][0] == expected, 'displayed aurora band %d differs' % row)
-    check(pbl[44 + 73][0] == gen_tables.raster_palette()[f & 31],
-          'raster pulse differs from the expected ember-to-gold phase')
+    check(pbl[44 + 73][0] == gen_tables.raster_palette((f>>8)&7, max(0,ref_visual_pulse(f-1,mod)-1)>>2)[(f>>2)&31],
+          'separator differs from the expected scene and music glow')
     print('  wireframe buffer verified on each of %d frames' % wire_frames[0])
     if ok0 and ok1 and ok2 and ok3 and not wire_fail:
         print('  logo, %d stars, scroller and wireframe (%d pixels) match the reference models exactly'

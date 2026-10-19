@@ -16,7 +16,9 @@ in verified chip RAM.
 
 Display line equals row + 44. A `WAIT $FFDF,$FFFE` permits Copper waits after
 line 255. Floor colours are red, orange, amber and pink, with near-white bar cores and a dark ember floor. The animated band below the
-logo pulses from ember to gold across 32 frames.
+logo uses a scene-coloured separator glow with a 128-frame base cycle. Actual
+kick, snare and chime cues lift it through four brightness levels; its restrained
+peak avoids the old independent white flash.
 
 ## Buffer ownership
 

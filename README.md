@@ -46,6 +46,14 @@ chip RAM (512 KiB machine configuration or more). Genuine Kickstart and physical
 hardware compatibility still require release testing. A500-class timing is the
 intended target; the host CPU model omits DMA contention and blitter timing.
 
+## Run a visual preview
+
+With `machine68k` and FFmpeg installed, `make preview` runs the assembled program
+and records eight seconds of its output at 50 fps to `build/demo-preview.mp4`.
+The silent clip covers eased sprite scene changes, the interference aurora and
+music-triggered energy links. Frames come from the test harness's Copper,
+bitplane and sprite model; it is not a recording from real Amiga hardware.
+
 ## What plays
 
 The display is 320×256, four bitplanes and 16 indexed colours, with Copper palette

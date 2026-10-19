@@ -212,3 +212,26 @@ Transition lookup data adds 8 KiB plus 512 bytes of ordinary RAM, with no change
 to chip allocation or Copper instruction count. The host model still excludes
 DMA contention and blitter duration; real hardware acceptance remains open.
 Gallery and energy-cage images were refreshed from this executable run.
+
+## Full run, separator polish and playable preview (2026-10-18)
+
+The final executable passes 6,400 frames, covering the two-music-loop schedule
+realignment and message wrap (snapshot 4,490). All 6,398 displayed wireframe
+buffers match the reference; 1,653 audio starts over 1,067 rows match the module.
+Separator colour words are checked on every frame against independent MOD history,
+scene and slow-phase selection. A passing baseline and lost-cue mutation prove
+that a disconnected separator envelope is detected.
+
+All 20 host tests, 33 static mutations, reproducible assets, the 100-frame chip
+loader and NTSC no-hang checks pass. Average modeled CPU work is 85,577 cycles;
+worst is 109,906 (78% of a PAL frame). Minimum starfield margin is 2,746 cycles.
+The run issues 155,704 line blits without changing Copper instruction count or
+chip allocation. DMA contention, blitter duration and genuine Kickstart/physical
+hardware acceptance remain outside this model.
+
+Frames 1,000–1,399 were recorded directly from the executable's interpreted
+Copper, bitplanes and sprites. The preview decodes without errors: 400 H.264 frames,
+640×512, 50 fps, eight seconds. `make preview` reproduces the silent version. A
+local companion preview aligns the existing libopenmpt-rendered soundtrack at
+19.98 seconds; this audio is a host mix, not emulated Paula output. The scene
+gallery and cover image were refreshed from this run.

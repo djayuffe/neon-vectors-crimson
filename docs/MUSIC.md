@@ -63,3 +63,7 @@ sample-and-period events, with a short visual envelope, while retaining the
 existing audio DMA trigger and reload sequence. The visual response begins on
 the following display update; it uses neither an extra audio channel nor a new
 interrupt handler.
+
+The onset envelope drives the floor and logo separator brightness banks, while
+energy links decay in opposing pairs. The separator combines the cue with a slow
+128-frame scene-coloured glow; it no longer runs an independent white flash.

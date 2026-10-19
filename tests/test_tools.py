@@ -237,9 +237,14 @@ class EffectsMusicTests(unittest.TestCase):
             self.assertTrue(all(abs((bank[k] & 15)-(bank[(k+1)%256] & 15)) <= 1 for k in range(256)))
         pulse = gen_tables.raster_palette()
         self.assertEqual(len(pulse), 32)
-        self.assertEqual(pulse[0], 0x210)
-        self.assertEqual(pulse[16], 0xFFF)
+        self.assertLess(pulse[0], pulse[16])
+        self.assertNotEqual(pulse[16], 0xFFF)
         self.assertEqual(pulse[1], pulse[-1])
+        self.assertEqual(len(gen_tables.raster_banks()), 1024)
+        for scene in range(8):
+            for level in range(3):
+                low, high = gen_tables.raster_palette(scene,level), gen_tables.raster_palette(scene,level+1)
+                self.assertTrue(all(((a>>shift)&15) <= ((b>>shift)&15) for a,b in zip(low,high) for shift in (0,4,8)))
 
     def test_sculpted_orbits_and_aurora_bounds(self):
         import gen_tables as g

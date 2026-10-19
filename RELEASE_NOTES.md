@@ -1,5 +1,12 @@
 # Release notes
 
+## Run and review the production
+
+- Scene-coloured logo separator with a slower base glow and real musical cue lift.
+- Every-frame separator reference checks and a lost-cue mutation test.
+- `make preview` records eight seconds of executable-rendered output at 50 fps.
+- Configurable PNG recording window for inspecting transitions and effect motion.
+
 ## Smoother motion and musical decay
 
 - Ease sprite paths and base tilt across every scene join over 32 frames.

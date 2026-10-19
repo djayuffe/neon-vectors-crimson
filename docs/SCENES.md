@@ -106,3 +106,7 @@ at PAL rate). Smoothstep weighting leaves the start and finish gently, while
 spin and roll keep moving. The same join handles Afterglow back into Ignition.
 The precomputed transition positions add 8 KiB of ordinary data and tilt easing
 adds 512 bytes; chip memory and Copper instruction count remain unchanged.
+
+The four-line separator beneath the logo now follows each movement's colour and
+the same musical light cues as the floor. Its slow base cycle lasts 128 frames;
+cues add restrained brightness instead of triggering an unrelated white flash.

@@ -79,3 +79,23 @@ The executable entry has executable permissions; no ROMs or toolchain are includ
 
 `make dist` is a packaging gate, not physical-machine certification. Complete the
 hardware and listening acceptance checks before publishing a final hardware release.
+
+## Record and run a preview
+
+`make preview` builds the demo, runs 1,450 emulated frames and captures frames
+1,000–1,399 at their nominal PAL rate. FFmpeg encodes `build/demo-preview.mp4`
+(640×512, 50 fps, eight seconds, silent). Install `machine68k` and FFmpeg first.
+`build/preview-frames` holds the source PNG sequence and can be removed after
+encoding. The 400-frame limit prevents stale extra PNGs extending the clip.
+
+For a longer acceptance run with the same preview:
+
+```sh
+python3 tools/emu_test.py --frames 6400 --snap 4490 --record-dir build/preview-frames
+ffmpeg -y -framerate 50 -i build/preview-frames/frame-%04d.png -frames:v 400 -c:v libx264 -pix_fmt yuv420p -crf 18 -movflags +faststart build/demo-preview.mp4
+```
+
+`--record-start` and `--record-count` select another consecutive window. The
+window must fit inside the run and start at frame three or later. Captures do
+not alter emulated CPU timing. These visual models do not replace DMA/blitter
+or genuine Kickstart acceptance in a full Amiga emulator or physical machine.

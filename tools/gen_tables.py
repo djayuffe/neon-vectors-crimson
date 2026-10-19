@@ -39,10 +39,15 @@ def floor_base():
     fl = [(0.0, 0x100), (0.55, 0x211), (1.0, 0x511)]
     return [ramp(fl, i / (FLOOR_H - 1)) for i in range(FLOOR_H)]
 
-def raster_palette():
-    """32-frame ember-to-gold pulse with a continuous loop endpoint."""
-    stops = [(0, 0x210), (0.45, 0xC32), (0.75, 0xFA6), (1, 0xFFF)]
-    return [ramp(stops, (1-math.cos(2*math.pi*k/32))/2) for k in range(32)]
+def raster_palette(scene=0, energy=0):
+    """Slow scene-coloured separator glow, lifted by actual music cues."""
+    colour = SCENE_FLOORS[scene][1]
+    return [lerp(0x001, colour, .08+.22*(1-math.cos(2*math.pi*k/32))/2+.12*energy)
+            for k in range(32)]
+
+def raster_banks():
+    return [colour for scene in range(8) for energy in range(4)
+            for colour in raster_palette(scene,energy)]
 
 
 def bar_motion():
@@ -360,6 +365,7 @@ if __name__ == '__main__':
            'balls': lambda: words(balls(), 8), 'spr_palette': spr_palette,
            'ring_tab': lambda: '\n'.join('        dc.w ' + ','.join('%d' % v for v in ring_tab()[i:i + 16]) for i in range(0, 512, 16)),
            'raster_palette': lambda: words(raster_palette(), 16),
+           'raster_banks': lambda: words(raster_banks(), 16),
            'bar_palettes': lambda: words(bar_palettes(), 8),
            'bar_motion': lambda: words(bar_motion(), 16),
            'aga_palette': lambda: words(aga_palette(), 8),

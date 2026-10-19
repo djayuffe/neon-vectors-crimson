@@ -13,6 +13,9 @@ _workspace = tempfile.TemporaryDirectory(prefix='neon-emu-')
 M = Path(_workspace.name) / 'repo'
 
 MUTANTS = [
+    ('separator music cue lost', 'src/main.s',
+     '        move.w  visual_pulse,d1\n        lsr.w   #2,d1',
+     '        clr.w   d1\n        lsr.w   #2,d1', 'separator glow'),
     ('energy decay stuck at full strength', 'src/main.s',
      '        lsr.w   #2,d0                      ; 1..4 opposing pairs',
      '        moveq   #4,d0', 'wireframe'),
