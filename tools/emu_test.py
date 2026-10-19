@@ -23,6 +23,7 @@ Usage: emu_test.py [--frames N] [--png FILE] [--alloc-fast] [--loader-chip]
 """
 import argparse, math, os, shutil, struct, subprocess, sys, tempfile, zlib
 from pathlib import Path
+from functools import lru_cache
 
 try:
     import machine68k as m68k
@@ -678,6 +679,55 @@ def spin_phase(updates):
             partial*spins[sections]-spins[0])
 
 
+def ref_star_speed(frame):
+    index, step=(frame>>8)&7, frame&255
+    current=scene(frame)[0]
+    if step < 32:
+        t=(step+1)/32
+        blend=t*t*(3-2*t)
+        previous=SCENES[(index-1)&7][0]
+        return round(previous+(current-previous)*blend)
+    return current
+
+
+@lru_cache(maxsize=8)
+def ref_wave_bank(scene):
+    return gen_tables.wave_tab(scene)
+
+
+def ref_logo_rows(frame):
+    scene, step=(frame>>8)&7,frame&255
+    current=ref_wave_bank(scene)
+    previous=ref_wave_bank((scene-1)&7)
+    t=(step+1)/32
+    blend=t*t*(3-2*t)
+    rows=[]
+    for row in range(64):
+        phase=(frame*4+3*row)&255
+        value=current[phase]&15
+        if step < 32:
+            old=previous[phase]&15
+            value=round(old+(value-old)*blend)
+        rows.append(value|(value<<4))
+    return rows
+
+
+def ref_aurora_rows(frame, banks=None):
+    banks=gen_tables.aurora_banks() if banks is None else banks
+    scene, step=(frame>>8)&7,frame&255
+    t=(step+1)/32
+    blend=t*t*(3-2*t)
+    rows=[]
+    for row in range(15):
+        phase=((frame&510)//2+13*row)&255
+        colour=banks[scene*256+phase]
+        if step < 32:
+            old=banks[((scene-1)&7)*256+phase]
+            colour=gen_tables.lerp(old,colour,blend)
+        rows.append(colour)
+    return rows
+
+
 def ref_stars(nupdates, nstars, consts):
     ZMIN, ZRANGE, ZSPEED, ZMID, ZNEAR, PROJ_F, CX, CY, Y0, H = consts
     recip = lambda z: int(round(PROJ_F * 256 / z))
@@ -693,8 +743,9 @@ def ref_stars(nupdates, nstars, consts):
         z = (((rand() & 255) * ZRANGE) >> 8) + ZMIN
         st.append([x, y, z])
     for frame in range(1, nupdates + 1):
+        speed=ref_star_speed(frame)
         for q in st:
-            q[2] -= scene(frame)[0]
+            q[2] -= speed
             if q[2] < ZMIN:
                 q[2] += ZRANGE
                 q[0] = (rand() & 511) - 255
@@ -793,7 +844,7 @@ def ref_wire(k, verts, edges, consts, pulse=0):
     settings = scene(k)
     k = spin_phase(k)
     cx = CX + ((sin(k) * SWAY) >> 7)              # sways with the x angle,
-    zoff = ZOFF + ((sin(3 * k) * ZOOM) >> 7)      # breathes with the y angle
+    zoff = ZOFF + ((sin(3 * k) * ZOOM) >> 7) - (pulse>>1)      # breathes with the y angle
     ma = matrix(k, 3 * k, k)
     mb = matrix(2 * k, -k, -3 * k)
     mc = matrix(6 * k, -k, 4 * k)
@@ -983,19 +1034,19 @@ def main():
         eq = a.consts
         if not wave_fail:
             frame = n-1
-            wave = gen_tables.wave_tab((frame >> 8) & 7)
+            wave = ref_logo_rows(frame)
             copper = a.mem.r32(a.sym('ptr_wave'))
             for row in range(eq['LOGO_H']):
-                if a.mem.r16(copper+row*16+14) != wave[(frame*4+row*3)&255]:
+                if a.mem.r16(copper+row*16+14) != wave[row]:
                     wave_fail.append('scene logo ripple differs at frame %d row %d' % (n,row))
                     break
         if not aurora_fail:
             frame = n-1
             palette = aurora_reference
             copper = a.mem.r32(a.sym('ptr_raster'))+68
-            phase = (frame & 510)//2
+            colours=ref_aurora_rows(frame,palette)
             for row in range(15):
-                expected = palette[((frame >> 8)&7)*256+((phase+13*row)&255)]
+                expected = colours[row]
                 if a.mem.r16(copper+6) != expected:
                     aurora_fail.append('aurora interference differs at frame %d band %d' % (n,row))
                     break
@@ -1007,6 +1058,11 @@ def main():
             pointer = a.mem.r32(a.sym('ptr_raster'))
             if a.mem.r16(pointer+2) != separator_reference[index]:
                 separator_fail.append('music separator glow differs at frame %d' % n)
+            for label in ('cop_scroll_top','cop_scroll_bottom'):
+                offset=a.sym(label)-a.sym('cop_raster_color')+6
+                if a.mem.r16(pointer+offset) != separator_reference[index]:
+                    separator_fail.append('scroller rail lighting differs at frame %d' % n)
+                    break
         if not pulse_fail and a.mem.r16(a.sym('visual_pulse')) != ref_visual_pulse(n-1, mod):
             pulse_fail.append('music-driven light envelope differs at frame %d' % n)
         if not ring_fail:
@@ -1307,7 +1363,7 @@ def main():
     sine = [int(round(127 * math.sin(2 * math.pi * i / 256))) for i in range(256)]
     wave_bad, shown_bad = [], 0
     for r in range(LOGO_H):
-        want_sc = gen_tables.wave_tab((f >> 8) & 7)[(((f << 2) & 0xFFFF) + 3 * r) & 255]
+        want_sc = ref_logo_rows(f)[r]
         v = want_sc & 15
         got_sc = sn['bplcon1_by_line'][44 + LOGO_Y + r]
         if got_sc != want_sc:
@@ -1335,10 +1391,12 @@ def main():
     check(got_rows == rows, 'floor bar rows (below display line 255, after the Copper wrap) differ: first %s' %
           [(i, hex(g), hex(w)) for i, (g, w) in enumerate(zip(got_rows, rows)) if g != w][:2])
     for row in range(15):
-        expected = gen_tables.aurora_banks()[((f>>8)&7)*256+(((f&510)//2+13*row)&255)]
+        expected = ref_aurora_rows(f)[row]
         check(pbl[44+76+8*row][0] == expected, 'displayed aurora band %d differs' % row)
     check(pbl[44 + 73][0] == gen_tables.raster_palette((f>>8)&7, max(0,ref_visual_pulse(f-1,mod)-1)>>2)[(f>>2)&31],
           'separator differs from the expected scene and music glow')
+    rail=gen_tables.raster_palette((f>>8)&7,max(0,ref_visual_pulse(f-1,mod)-1)>>2)[(f>>2)&31]
+    check(pbl[44+197][0] == rail and pbl[44+218][0] == rail, 'displayed scroller rail lighting differs')
     print('  wireframe buffer verified on each of %d frames' % wire_frames[0])
     if ok0 and ok1 and ok2 and ok3 and not wire_fail:
         print('  logo, %d stars, scroller and wireframe (%d pixels) match the reference models exactly'

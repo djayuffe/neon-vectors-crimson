@@ -19,7 +19,10 @@ are also checked against independent orbital calculations.
 The aurora turns fifteen existing Copper background bands into moving interference
 waves. Sprite paths change between a circle, ellipse, figure-eight, fourfold swell,
 three-petal orbit, Lissajous weave, interference curve and five-petal orbit.
-These effects use the existing display planes and sprite pages. Music onsets also
+These effects use the existing display planes and sprite pages. The logo, aurora and
+star speed now ease across scene joins alongside the sprites. Beat-driven depth
+adds a restrained pulse to the wireframes; the scroller rails share the musical
+lighting, and floor-bar edges retain their colour on strong cues. Music onsets also
 drive up to eight connecting edges between the independently tumbling cubes, making
 an elastic cage that decays in opposing pairs during the three full-ensemble scenes. Sprite paths and tilt ease into each scene over 32 frames. The 68000 renderer skips
 hidden objects, shares matrix intermediates and batches fixed Copper writes.

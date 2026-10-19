@@ -283,3 +283,33 @@ Average modeled work is 85,879 cycles, worst 110,246 (78% of a PAL frame), with
 bytes; module size and chip allocation remain unchanged. The host mix peaks at
 -7.42 dBFS, RMS -24.33 dBFS, with no clipped samples. Genuine Kickstart, DMA
 contention, blitter duration and physical/listening acceptance remain open.
+
+## Coordinated visual-effects pass (2026-10-18)
+
+The integrated logo/aurora/star transitions, sprite choreography, music depth,
+scroller lighting and floor contrast pass 6,400 executed frames, including two
+music loops and the message wrap. The run compares 6,398 displayed wireframes
+and verifies 1,508 audio starts across 1,067 rows, plus every-tick audio volumes
+and shadows. A separate full-period reference pass checks all wireframe/bridge
+pixels stay inside the middle band with the new depth pulse.
+
+All 24 tests, 34 static mutations, deterministic assets and 100-frame chip-loader
+and NTSC no-hang checks pass. Passing baselines precede seven targeted behavioral
+faults: missing logo easing, rail cue, depth pulse, wrong logo row phase, wrong
+aurora phase, missing star easing and a wrong aurora transition bank. Each is
+caught by the corresponding rendering/reference diagnostic. Endpoint regressions
+also cover the logo scroll range, aurora phase continuity, star speeds and coloured
+floor shoulders at the strongest music level.
+
+Average modeled work is 85,884 cycles, worst 110,570 (78% of a PAL frame), with
+2,692 cycles minimum starfield margin. Previous average work was 85,879 cycles.
+Transition banks add 40.5 KiB of ordinary data; chip allocation and the 924-word
+Copper list remain unchanged. The run issues 155,740 line blits. The model omits
+DMA contention and blitter duration; genuine Kickstart and physical acceptance
+remain open.
+
+A refreshed eight-second clip records frames 1,000–1,399 from the executable's
+Copper/bitplane/sprite model. It decodes without errors as 400 H.264 frames,
+640×512 at 50 fps, with the current libopenmpt host soundtrack aligned at the
+nominal 19.98-second position. The video is a host-model recording, not a real
+Paula/full-machine capture. The scene gallery and cover come from the same run.

@@ -85,7 +85,8 @@ def bar_palettes():
     for bases in SCENE_FLOORS:
         base = bar_colors(bases)
         for energy in range(4):
-            colours += [lerp(colour, 0xFFF, energy * 0.12) for colour in base]
+            colours += [lerp(colour, 0xFFF, energy * 0.12 * ((1,2,3,4,4,3,2,1)[i%8]/4)**1.5)
+                        for i,colour in enumerate(base)]
     return colours
 
 
@@ -163,6 +164,8 @@ def copper():
                 first_wave = False
             if y == 76:
                 lines.append('cop_aurora:')
+            if y in (197,218):
+                lines.append('cop_scroll_top:' if y == 197 else 'cop_scroll_bottom:')
             body = ','.join('%s,$%04X' % (r, val) for r, val in regs)
             lines.append('        dc.w $%04X,$FFFE,%s' % (pos, body))
     lines.append('        dc.w $FFFF,$FFFE')
@@ -184,6 +187,45 @@ def wave_tab(scene=0):
 
 def wave_banks():
     return [value for scene in range(8) for value in wave_tab(scene)]
+
+def logo_transitions():
+    out = []
+    for scene in range(8):
+        previous, current = wave_tab((scene-1)&7), wave_tab(scene)
+        for step in range(32):
+            t=(step+1)/32
+            ease=t*t*(3-2*t)
+            for row in range(64):
+                phase=(4*step+3*row)&255
+                a,b=previous[phase]&15,current[phase]&15
+                value=round(a+(b-a)*ease)
+                out.append(value|(value<<4))
+    return out
+
+STAR_SPEEDS=(2,2,7,2,3,2,8,3)
+
+def star_speed_transitions():
+    values=[]
+    for scene in range(8):
+        for step in range(32):
+            t=(step+1)/32
+            ease=t*t*(3-2*t)
+            old=STAR_SPEEDS[(scene-1)&7]
+            values.append(round(old+(STAR_SPEEDS[scene]-old)*ease))
+    return values
+
+def aurora_transitions():
+    banks=aurora_banks()
+    out=[]
+    for scene in range(8):
+        for step in range(32):
+            t=(step+1)/32
+            ease=t*t*(3-2*t)
+            for row in range(15):
+                phase=((scene*256+step)//2+13*row)&255
+                out.append(lerp(banks[((scene-1)&7)*256+phase],banks[scene*256+phase],ease))
+            out.append(0)  # 32-byte frame stride
+    return out
 
 # ---- hardware sprite balls --------------------------------------------------------------------
 BALL_SIZES = (16, 12, 8)             # near, mid, far; each drawn centred in a 16 pixel wide sprite
@@ -357,6 +399,9 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     tables = {'copper': copper, 'sintab': sintab, 'recip_star': recip_star, 'recip_wire': recip_wire,
            'floor_base': lambda: words(floor_base()), 'bar_colors': lambda: words(bar_colors(), 8),
+           'logo_transitions': lambda: words(logo_transitions()),
+           'star_speed_transitions': lambda: words(star_speed_transitions()),
+           'aurora_transitions': lambda: words(aurora_transitions()),
            'orbit_transitions': lambda: words([v & 65535 for v in orbit_transitions()]),
            'tilt_transitions': lambda: words(tilt_transitions()),
            'aurora_banks': lambda: words(aurora_banks()),

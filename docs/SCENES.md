@@ -110,3 +110,12 @@ adds 512 bytes; chip memory and Copper instruction count remain unchanged.
 The four-line separator beneath the logo now follows each movement's colour and
 the same musical light cues as the floor. Its slow base cycle lasts 128 frames;
 cues add restrained brightness instead of triggering an unrelated white flash.
+
+## A shared transition window
+
+The first 32 frames now ease logo motion, aurora colour and star speed alongside
+the sprite path and tilt. Spin, roll and interference phase continue through the
+join, including Afterglow back to Ignition. Geometry visibility remains part of
+each movement's composition. Music adds a small forward depth pulse to the
+wireframes, while scroller rails echo the separator glow. Floor-bar shoulders
+keep more of their original hue when the cores brighten.

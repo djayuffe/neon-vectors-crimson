@@ -169,3 +169,17 @@ a signed nibble-sized delta; the four-channel tick pass updates RAM volume words
 clamps them to Paula's range and writes AUDxVOL. Note defaults and Cxx update the
 same RAM words. No audio hardware register is read back. The data costs twelve
 ordinary RAM bytes and adds no chip payload or audio channel.
+
+## Coordinated effect transitions
+
+The logo and aurora use per-scene, per-frame transition words for their first
+32 frames, then return to the smaller cyclic banks. Logo transitions store 64
+scroll words per frame (32 KiB total); aurora transitions store fifteen colours
+plus padding (8 KiB). A 512-byte speed bank eases star acceleration. All live in
+ordinary data, and both destination phases match their cyclic path at the join.
+
+Scroller rail writes use displacement differences between labels in the same
+copied Copper hunk, relative to its relocated raster pointer. They update existing
+colour value words rather than adding moves or absolute link-time pointers.
+`DrawWire` applies up to seven depth units from the post-tick music envelope;
+the base sinusoidal depth range is reduced from eighteen to twelve units.

@@ -128,3 +128,20 @@ The base tilt follows the same easing; ongoing spin, roll and tilt wobble contin
 Precomputed eight-ball positions avoid per-ball multiplies for the blend. At the
 last transition frame the table equals the destination path exactly. Three depth
 sizes, stable sorting and normal projection remain active throughout.
+
+## Coordinated effect polish
+
+| Area | Current refinement |
+| --- | --- |
+| Logo | 32-frame eased harmonic profile changes; 2–14 pixel scroll range retained |
+| Stars | 32-frame speed changes instead of instantaneous acceleration |
+| Wireframes | Seven-unit maximum music depth pulse over a gentler twelve-unit base breath |
+| Sprites | Existing eased curves and tilt now share the transition window with logo and background |
+| Scroller | Top and bottom rails follow the scene-coloured musical separator glow |
+| Aurora | 32-frame RGB palette joins using the ongoing interference phase |
+| Floor | Music lifts concentrate in the bright core, preserving coloured shoulders |
+
+The transition tables use 40.5 KiB of ordinary RAM. Copper instructions, chip
+allocation, display planes, sprite pages and tracker timing are unchanged. The
+lookup paths remove phase work during joins rather than adding per-pixel blend
+arithmetic. All projected wireframe/bridge pixels are checked inside rows 76–195.

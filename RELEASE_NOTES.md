@@ -1,5 +1,13 @@
 # Release notes
 
+## Coordinated visual-effects pass
+
+- Ease logo waves, aurora colours and star acceleration alongside the sprite transitions.
+- Add restrained music-driven wireframe depth while keeping geometry in bounds.
+- Synchronize scroller rails with the musical lighting.
+- Preserve floor-bar shoulder colour while intensifying the cores.
+- Add scene-join endpoint, lighting and rendering regressions without additional chip allocation.
+
 ## Smoother tracker articulation
 
 - Axy tick-level volume slides for bass releases, pad tails and lead decay.

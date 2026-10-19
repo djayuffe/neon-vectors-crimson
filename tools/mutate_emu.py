@@ -13,6 +13,19 @@ _workspace = tempfile.TemporaryDirectory(prefix='neon-emu-')
 M = Path(_workspace.name) / 'repo'
 
 MUTANTS = [
+    ('star acceleration easing removed', 'src/main.s',
+     '        move.w  0(a0,d1.w),sec_zspeed', '        nop', 'plane'),
+    ('aurora transition bank replaced', 'src/main.s',
+     '        lea     aurora_blends,a2', '        lea     aurora_colors,a2', 'aurora interference'),
+    ('logo easing skipped', 'src/main.s',
+     '        cmp.w   #32,d0\n        bhs     .steady',
+     '        cmp.w   #0,d0\n        bhs     .steady', 'logo ripple'),
+    ('scroller rail cue removed', 'src/main.s',
+     '        move.w  d1,cop_scroll_top-cop_raster_color+6(a1)',
+     '        nop', 'scroller rail'),
+    ('wire depth pulse removed', 'src/main.s',
+     '        sub.w   d1,d0                      ; subtle beat-driven depth breath',
+     '        nop', 'wireframe'),
     ('tracker volume shadow stale after Cxx', 'src/modplayer.s',
      '        move.w  d4,0(a3,d7.w)', '        nop', 'row-volume envelope'),
     ('tracker tick slides skipped', 'src/modplayer.s',
@@ -76,7 +89,7 @@ MUTANTS = [
     ('Copper wrap below line 255 missing', 'src/main.s',
      '        dc.w $FFDF,$FFFE                    ; wrap: lines below are 256 + WAIT line\n', '', 'Copper wrap'),
     ('wavy logo: wrong row phase step', 'src/main.s',
-     '        addq.w  #6,d0                      ; three entries per logo row', '        addq.w  #8,d0                      ; wrong row phase', 'wavy logo'),
+     '        addq.w  #6,d0                      ; three entries per logo row', '        addq.w  #8,d0                      ; wrong row phase', 'logo ripple'),
     ('wave never reset after the logo', 'src/main.s',
      '        dc.w BPLCON1,$0000\n', '', 'BPLCON1'),
     ('display modulo wrong (extra fetch word not skipped)', 'src/main.s',

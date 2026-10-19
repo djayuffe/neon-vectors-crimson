@@ -346,6 +346,32 @@ class EffectsMusicTests(unittest.TestCase):
         patterns = [mod[1084+i*1024:1084+(i+1)*1024] for i in range(8)]
         self.assertEqual(len(set(patterns)),8)
 
+    def test_scene_easing_endpoints_and_floor_contrast(self):
+        import gen_tables as g
+        from emu_test import ref_logo_rows,ref_aurora_rows,ref_star_speed
+        logo,aurora,speeds=g.logo_transitions(),g.aurora_transitions(),g.star_speed_transitions()
+        self.assertEqual((len(logo),len(aurora),len(speeds)),(16384,4096,256))
+        colours=g.aurora_banks()
+        for scene in range(8):
+            for step in (0,15,31):
+                frame=scene*256+step
+                start=(scene*32+step)*64
+                self.assertEqual(logo[start:start+64],ref_logo_rows(frame))
+                start=(scene*32+step)*16
+                self.assertEqual(aurora[start:start+15],ref_aurora_rows(frame,colours))
+                self.assertEqual(aurora[start+15],0)
+                self.assertEqual(speeds[scene*32+step],ref_star_speed(frame))
+            phase=(31*4)&255
+            self.assertEqual(logo[(scene*32+31)*64],g.wave_tab(scene)[phase])
+            self.assertEqual(speeds[scene*32+31],g.STAR_SPEEDS[scene])
+        self.assertTrue(all(2 <= (v&15) <= 14 and v>>4 == v&15 for v in logo))
+        banks=g.bar_palettes()
+        for scene in range(8):
+            for bar in range(4):
+                baseline=banks[scene*128+bar*8]
+                bright=banks[scene*128+96+bar*8]
+                self.assertTrue(all(0 <= ((bright>>shift)&15)-((baseline>>shift)&15) <= 1 for shift in (0,4,8)))
+
     def test_music_voices_arrangement_and_sample_endpoints(self):
         root = Path(__file__).resolve().parents[1]
         mod = (root/'assets/neon.mod').read_bytes()

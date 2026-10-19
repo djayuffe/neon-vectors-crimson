@@ -228,7 +228,7 @@ for rel,n,scope,tok,code in refs:
 # --- data_c payload is only ever reached through the relocation table -------
 # A direct code reference to a chipdata label would bake in a link time address
 # and survive the copy into chip RAM, so only the reloc table may name them.
-chip_labels=['screen','logo_data','font_data','audio_silence','mod_data','copper','cop_bpl1','cop_raster_color','cop_wave','cop_aurora','cop_bars','sprites','cop_spr']
+chip_labels=['screen','logo_data','font_data','audio_silence','mod_data','copper','cop_bpl1','cop_raster_color','cop_wave','cop_aurora','cop_scroll_top','cop_scroll_bottom','cop_bars','sprites','cop_spr']
 for label in chip_labels:
     for n,line in enumerate(main_src.splitlines(),1):
         code=line.split(';',1)[0]
@@ -237,6 +237,10 @@ for label in chip_labels:
         # A difference of labels in the same copied block is a relocation-invariant displacement.
         if label in ('cop_aurora', 'cop_raster_color'):
             ok = ok or code.strip() == 'lea     cop_aurora-cop_raster_color(a1),a1'
+        if label in ('cop_raster_color','cop_scroll_top','cop_scroll_bottom'):
+            ok = ok or code.strip() in (
+                'move.w  d1,cop_scroll_top-cop_raster_color+6(a1)',
+                'move.w  d1,cop_scroll_bottom-cop_raster_color+6(a1)')
         check(bool(ok),f'main.s:{n}: chipdata label {label} used outside its definition/reloc table: {code.strip()}')
 
 # --- Copper list structure --------------------------------------------------
