@@ -89,7 +89,7 @@ first leaves the sync zone, then waits for line ≥ 300, the first line below th
 1. `BlitWait`, then `WireSwap` — show the wireframe buffer that was finished last frame;
 2. Increment the frame counter and `UpdateSection`; `UpdateWave` and `UpdateBars` — rewrite the logo's `BPLCON1` rows and the floor's colour rows
    in the Copper list (they must finish before the beam reaches the logo);
-3. `UpdateSprites` updates the ring; `UpdateRaster` rewrites the animated `COLOR00` slot;
+3. `UpdateSprites` selects the sculpted orbit and updates its sprites; `UpdateRaster` rewrites the animated `COLOR00` slot; `UpdateAurora` updates fifteen existing middle-band background slots;
 4. `UpdateStars` — erase, advance and redraw the 3D starfield;
 5. `UpdateScroller` — every second frame, shift the strip one pixel and insert a column;
 6. `MOD_Tick` — one tracker tick (a row every 6 ticks), after the time-critical drawing;

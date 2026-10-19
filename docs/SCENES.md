@@ -64,3 +64,29 @@ The eight 256-word tables occupy 4 KiB of ordinary data, replacing the previous
 512-byte table. Scene selection happens once per frame; the 64 Copper row writes,
 chip allocation and display planes are unchanged. The emulator checks every row
 on every frame, including scene transitions and wraparound.
+
+## Sculpted orbits and interference aurora
+
+| Movement | Sprite path | Aurora tint |
+| --- | --- | --- |
+| Ignition | Original circle | Copper |
+| Prism | Flattened ellipse | Ruby |
+| Phase Shift | Figure-eight | Ice blue |
+| Diamond | Fourfold radial swell | Gold |
+| Constellation | Three-petal orbit | Violet |
+| Orbital | Two-by-three Lissajous weave | Cyan |
+| Redline | Counter-rotating harmonic interference | Crimson |
+| Afterglow | Five-petal orbit | Warm amber |
+
+The paths retain perspective, depth sorting, three sprite sizes and the existing
+scene tilt and roll. The tighter crossing paths have reduced radii to keep their
+sprites clear of the logo artwork and scrolling text.
+
+Behind them, two interfering waves modulate fifteen eight-line background bands.
+Each movement has its own phase, harmonic and tint. The curtain moves one phase
+step every two frames, with thirteen steps between adjacent bands. Only COLOR00
+changes; stars, vectors and sprite colours keep their contrast.
+
+Seven additional 1 KiB orbit banks and 4 KiB of aurora colours add 11 KiB of
+ordinary data. Copper instruction count, chip allocation and sprite artwork are
+unchanged. The renderer checks every background band and sprite page each frame.

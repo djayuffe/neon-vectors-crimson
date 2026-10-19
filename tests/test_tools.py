@@ -241,6 +241,27 @@ class EffectsMusicTests(unittest.TestCase):
         self.assertEqual(pulse[16], 0xFFF)
         self.assertEqual(pulse[1], pulse[-1])
 
+    def test_sculpted_orbits_and_aurora_bounds(self):
+        import gen_tables as g
+        orbits = [tuple(tuple(g.orbit_point(scene,k)) for k in range(256)) for scene in range(8)]
+        self.assertEqual(len(set(orbits)), 8)
+        self.assertEqual(len(g.orbit_banks()), 4096)
+        for orbit in orbits:
+            self.assertTrue(all(-70 <= value <= 70 for point in orbit for value in point))
+            self.assertTrue(all(max(abs(orbit[k][axis]-orbit[(k+1)%256][axis]) for axis in (0,1)) <= 5 for k in range(256)))
+        from emu_test import ref_ring
+        for frame in range(1,2049):
+            for sprite in ref_ring(frame,160,(70,40,300,136,285,325,220)):
+                pos, ctl = int.from_bytes(sprite[:2],'big'), int.from_bytes(sprite[2:4],'big')
+                top = ((pos>>8)|((ctl&4)<<6))-44
+                bottom = ((ctl>>8)|((ctl&2)<<7))-44
+                self.assertGreaterEqual(top, 75)
+                self.assertLessEqual(bottom, 196)
+        colours = g.aurora_banks()
+        self.assertEqual(len(colours), 2048)
+        self.assertEqual(len({tuple(colours[i:i+256]) for i in range(0,2048,256)}), 8)
+        self.assertTrue(all(0 <= colour <= 0x555 for colour in colours))
+
     def test_music_voices_arrangement_and_sample_endpoints(self):
         root = Path(__file__).resolve().parents[1]
         mod = (root/'assets/neon.mod').read_bytes()

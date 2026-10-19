@@ -156,6 +156,8 @@ def copper():
             if first_wave:
                 lines.append('cop_wave:                                   ; 64 rows, 16 bytes each (BPLCON1 value at +14)')
                 first_wave = False
+            if y == 76:
+                lines.append('cop_aurora:')
             body = ','.join('%s,$%04X' % (r, val) for r, val in regs)
             lines.append('        dc.w $%04X,$FFFE,%s' % (pos, body))
     lines.append('        dc.w $FFFF,$FFFE')
@@ -227,6 +229,43 @@ def ring_tab():
         vals += [(RING_R * c) >> 7, (RING_R * sn) >> 7]
     return vals
 
+def orbit_point(scene, k):
+    """Eight closed paths inside the original ring's coordinate envelope."""
+    t = 2 * math.pi * k / 256
+    c, sn = math.cos(t), math.sin(t)
+    if scene == 0:
+        return ring_tab()[2*k:2*k+2]
+    if scene == 1: x, z = c, .55*sn
+    elif scene == 2: x, z = .85*c, .65*math.sin(2*t)
+    elif scene == 3:
+        radius = .8+.2*math.cos(4*t)
+        x, z = radius*c, radius*sn
+    elif scene == 4:
+        radius = .72+.28*math.cos(3*t)
+        x, z = radius*c, radius*sn
+    elif scene == 5: x, z = .68*math.cos(2*t), .68*math.sin(3*t)
+    elif scene == 6: x, z = .7*c+.3*math.cos(3*t), .7*sn-.3*math.sin(3*t)
+    else:
+        radius = .8+.2*math.sin(5*t)
+        x, z = radius*c, radius*sn
+    return round(69*x), round(69*z)
+
+def orbit_banks():
+    return [value for scene in range(8) for k in range(256) for value in orbit_point(scene,k)]
+
+AURORA_COLOURS = (0x421, 0x413, 0x135, 0x431, 0x324, 0x145, 0x511, 0x432)
+
+def aurora_banks():
+    """Two interfering waves colour existing eight-line background bands."""
+    out = []
+    for scene, colour in enumerate(AURORA_COLOURS):
+        for k in range(256):
+            t = 2*math.pi*k/256
+            energy = (.5+.5*math.sin(t+scene*.7)*math.cos((2+scene%3)*t))**2
+            out.append(lerp(0x001, colour, energy))
+    return out
+
+
 def spr_palette_regs():
     regs = []
     for pair, cols in enumerate(SPR_PALETTE):
@@ -288,6 +327,8 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     tables = {'copper': copper, 'sintab': sintab, 'recip_star': recip_star, 'recip_wire': recip_wire,
            'floor_base': lambda: words(floor_base()), 'bar_colors': lambda: words(bar_colors(), 8),
+           'aurora_banks': lambda: words(aurora_banks()),
+           'orbit_banks': lambda: words([v & 65535 for v in orbit_banks()]),
            'wave_tab': lambda: words(wave_tab()), 'wave_banks': lambda: words(wave_banks()), 'palette': header_palette,
            'balls': lambda: words(balls(), 8), 'spr_palette': spr_palette,
            'ring_tab': lambda: '\n'.join('        dc.w ' + ','.join('%d' % v for v in ring_tab()[i:i + 16]) for i in range(0, 512, 16)),

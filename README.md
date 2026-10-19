@@ -1,7 +1,7 @@
 # Neon Vectors Crimson
 
 A source-complete PAL Amiga demo: three nested wireframes, a perspective starfield,
-eight orbiting sprite balls, a layered, rippling metal logo and a scrolling message over a
+eight sculpted sprite orbits, an animated interference aurora, a layered, rippling metal logo and a scrolling message over a
 Copper-bar floor that changes colour with each scene. The visual identity pairs gold and
 copper lettering with ice-cyan vectors, crimson framing and native-pixel machine labels. A generated four-channel tracker tune plays
 through Paula. Press the **left mouse button** to return to the system.
@@ -14,7 +14,12 @@ AGA machines; the experimental AGA tools are not part of the executable.
 
 The image comes from the program’s Copper list and bitplane memory in the host test
 harness, including its model of the eight ball sprites. Sprite buffers and pointers
-are also checked against independent ring calculations.
+are also checked against independent orbital calculations.
+
+The aurora turns fifteen existing Copper background bands into moving interference
+waves. Sprite paths change between a circle, ellipse, figure-eight, fourfold swell,
+three-petal orbit, Lissajous weave, interference curve and five-petal orbit.
+These effects use the existing display planes and sprite pages.
 
 ## Build
 

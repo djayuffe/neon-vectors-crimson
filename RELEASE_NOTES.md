@@ -1,5 +1,13 @@
 # Release notes
 
+## Sculpted trajectories and Copper interference
+
+- Eight sprite paths: ellipse, figure-eight, petal curves, Lissajous weave and harmonic interference alongside the opening circle.
+- Moving scene-coloured aurora reuses fifteen existing Copper background bands.
+- Perspective, depth sorting and three-size sprite selection remain active on every path.
+- Full-cycle bounds regression and every-frame aurora/orbit reference checks.
+- No additional chip allocation or Copper instructions.
+
 ## Scene-specific logo choreography
 
 - Eight distinct harmonic logo motions match the eight visual movements.

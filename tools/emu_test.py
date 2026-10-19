@@ -789,8 +789,26 @@ def ref_ring(f, wire_cx, consts):
     balls = []
     for i in range(8):
         th = 3 * f + 32 * i
-        x0 = (RING_R * cos(th)) >> 7
-        z0 = (RING_R * sin(th)) >> 7
+        scene = (f >> 8) & 7
+        t = 2*math.pi*(th & 255)/256
+        c, sn = math.cos(t), math.sin(t)
+        if scene == 0:
+            x0, z0 = (RING_R * cos(th)) >> 7, (RING_R * sin(th)) >> 7
+        else:
+            if scene == 1: x, z = c, .55*sn
+            elif scene == 2: x, z = .85*c, .65*math.sin(2*t)
+            elif scene == 3:
+                radius = .8+.2*math.cos(4*t)
+                x, z = radius*c, radius*sn
+            elif scene == 4:
+                radius = .72+.28*math.cos(3*t)
+                x, z = radius*c, radius*sn
+            elif scene == 5: x, z = .68*math.cos(2*t), .68*math.sin(3*t)
+            elif scene == 6: x, z = .7*c+.3*math.cos(3*t), .7*sn-.3*math.sin(3*t)
+            else:
+                radius = .8+.2*math.sin(5*t)
+                x, z = radius*c, radius*sn
+            x0, z0 = round(69*x), round(69*z)
         xx = (x0 * A + z0 * B) >> 7
         yy = (x0 * C + z0 * Dm) >> 7
         zz = (z0 * F) >> 7
@@ -882,8 +900,9 @@ def main():
     # Every frame, the wireframe buffer the Copper is showing must equal the reference frame
     # exactly, including the rows outside the band. A single snapshot can miss stale pixels
     # that only occur in rows the object seldom reaches.
-    wire_fail, pulse_fail, ring_fail, wave_fail = [], [], [], []
+    wire_fail, pulse_fail, ring_fail, wave_fail, aurora_fail = [], [], [], [], []
     wire_frames = [0]
+    aurora_reference = gen_tables.aurora_banks()
     gallery_frames = {128+256*scene for scene in range(8)}
     if args.gallery_dir:
         args.gallery_dir.mkdir(parents=True, exist_ok=True)
@@ -899,6 +918,17 @@ def main():
                 if a.mem.r16(copper+row*16+14) != wave[(frame*4+row*3)&255]:
                     wave_fail.append('scene logo ripple differs at frame %d row %d' % (n,row))
                     break
+        if not aurora_fail:
+            frame = n-1
+            palette = aurora_reference
+            copper = a.mem.r32(a.sym('ptr_raster'))+68
+            phase = (frame & 510)//2
+            for row in range(15):
+                expected = palette[((frame >> 8)&7)*256+((phase+13*row)&255)]
+                if a.mem.r16(copper+6) != expected:
+                    aurora_fail.append('aurora interference differs at frame %d band %d' % (n,row))
+                    break
+                copper += 12 if row == 0 else 8
         if not pulse_fail and a.mem.r16(a.sym('visual_pulse')) != ref_visual_pulse(n-1, mod):
             pulse_fail.append('music-driven light envelope differs at frame %d' % n)
         if not ring_fail:
@@ -1151,7 +1181,7 @@ def main():
         rows = sorted({i // 40 for i in bad})
         check(not bad, '%s differs from the expected image in %d bytes (rows %s...)' % (name, len(bad), rows[:6]))
         return not bad
-    for m_ in wire_fail+pulse_fail+ring_fail+wave_fail:
+    for m_ in wire_fail+pulse_fail+ring_fail+wave_fail+aurora_fail:
         check(False, m_)
     ok0 = diff('plane 0 (logo + mid stars + scroller)', sn['planes'][0], e0)
     ok2 = diff('plane 2 (far + near stars)', sn['planes'][2], e2)
@@ -1219,6 +1249,9 @@ def main():
     got_rows = [pbl[44 + FY0 + i][0] for i in range(FH)]
     check(got_rows == rows, 'floor bar rows (below display line 255, after the Copper wrap) differ: first %s' %
           [(i, hex(g), hex(w)) for i, (g, w) in enumerate(zip(got_rows, rows)) if g != w][:2])
+    for row in range(15):
+        expected = gen_tables.aurora_banks()[((f>>8)&7)*256+(((f&510)//2+13*row)&255)]
+        check(pbl[44+76+8*row][0] == expected, 'displayed aurora band %d differs' % row)
     check(pbl[44 + 73][0] == gen_tables.raster_palette()[f & 31],
           'raster pulse differs from the expected ember-to-gold phase')
     print('  wireframe buffer verified on each of %d frames' % wire_frames[0])

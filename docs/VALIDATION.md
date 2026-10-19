@@ -143,3 +143,21 @@ mutants and deterministic asset reproduction pass. Worst modeled work is 111,018
 CPU cycles (about 78% of a PAL frame); the minimum starfield margin is 3,306 cycles.
 The model excludes DMA contention and blitter duration; physical hardware and
 cycle-exact acceptance remain open. Gallery images were regenerated from this run.
+
+## Sculpted paths and aurora (2026-10-18)
+
+Final acceptance covers 2,100 frames and all eight scene midpoints, including the
+visual loop boundary. All fifteen CPU-written aurora bands and eight sprite pages
+are compared on every frame; the snapshot also checks displayed background colours.
+The full-cycle path bounds regression keeps sprites clear of the logo artwork and
+scroller. All 19 host tests, 33 static mutations and deterministic asset reproduction
+pass. A passing 300-frame baseline precedes three targeted fault injections: wrong
+aurora phase, wrong orbit-bank stride and swapped chip-copy source/destination.
+All three are caught with the expected diagnostics. Chip-loader and NTSC no-hang
+100-frame runs pass as well.
+
+Worst modeled work is 112,040 cycles (79% of a PAL frame), average 95,549; minimum
+starfield deadline margin is 2,200 cycles. Copper instruction count remains 924
+words. No chip data is added; the new tables add 11 KiB of ordinary data. DMA
+contention, blitter duration, genuine Kickstart and physical hardware acceptance
+remain outside this host model. Gallery and cover images come from the final run.

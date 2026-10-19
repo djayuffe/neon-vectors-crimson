@@ -13,6 +13,12 @@ _workspace = tempfile.TemporaryDirectory(prefix='neon-emu-')
 M = Path(_workspace.name) / 'repo'
 
 MUTANTS = [
+    ('aurora interference phase corrupted', 'src/main.s',
+     '        addi.w  #26,d0                    ; thirteen phase steps per band',
+     '        addi.w  #24,d0                    ; wrong phase step', 'aurora interference'),
+    ('sculpted orbit bank stride halved', 'src/main.s',
+     '        lsl.w   #2,d0                     ; 1024 bytes per closed orbit',
+     '        lsl.w   #1,d0                     ; wrong orbit stride', 'sprite ring'),
     ('logo scene bank ignored', 'src/main.s',
      '        adda.w  d1,a2\n        move.w  frame_no,d0',
      '        nop\n        move.w  frame_no,d0', 'scene logo ripple'),

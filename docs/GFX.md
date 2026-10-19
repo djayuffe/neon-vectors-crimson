@@ -35,7 +35,7 @@ data words at offsets 2/6, 10/14, 18/22 and 26/30 from the plane-pointer list.
 
 The logo is 320×64, generated from distance-field strokes, arcs, bevel shading,
 a shadow and subtitle geometry in `tools/logo_art.py`. The subtitle uses warm rose/copper tones. Each row’s horizontal
-scroll is indexed by `(4*frame + 3*row) & 255`, with a fundamental plus second-harmonic ripple and scroll reset below the logo.
+scroll is indexed by `(4*frame + 3*row) & 255`, using eight scene-specific harmonic profiles and scroll reset below the logo.
 
 The 64 stars retain their last offset, mask and brightness class. Every old pixel
 is erased before any new pixel is drawn, avoiding collisions that erase another
@@ -54,7 +54,7 @@ frame displays that buffer. Line-mode octants follow the hardware reference tabl
 `ONEDOT` remains clear for solid shallow lines. Current scene geometry stays within
 the band; adding larger objects requires clipping or renewed bounds validation.
 
-Eight hardware balls orbit on a tilted, wobbling ring. The program sorts them by
+Eight hardware balls follow eight scene-specific closed curves, with tilt and roll. The program sorts them by
 depth, selects one of three prebuilt sizes and patches the corresponding sprite
 pointers. Far sprite channels are placed behind the playfield using `BPLCON2=$0010`.
 In single-playfield mode, PF2P (bits 5–3) controls that priority, not PF1P. See
@@ -98,3 +98,7 @@ and retains the existing object/star settings. `UpdateBars` indexes the scene’
 four precomputed light banks. Runtime arithmetic selects a bank; colour blending
 happens entirely in the host generator. The original motion paths and Copper list
 length remain intact. See [the captured scene gallery](SCENES.md).
+
+The middle-band background now uses a moving Copper interference curtain. The
+fifteen existing COLOR00 slots receive scene-specific precomputed colours at
+half frame speed. No additional Copper moves or bitplane fetches are required.
