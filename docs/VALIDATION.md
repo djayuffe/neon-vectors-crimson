@@ -235,3 +235,28 @@ Copper, bitplanes and sprites. The preview decodes without errors: 400 H.264 fra
 local companion preview aligns the existing libopenmpt-rendered soundtrack at
 19.98 seconds; this audio is a host mix, not emulated Paula output. The scene
 gallery and cover image were refreshed from this run.
+
+## Eight-pattern tracker revision (2026-10-18)
+
+The new eight-pattern arrangement passes 6,400 emulated frames, including two
+complete song loops, the visual/music schedule realignment and scroller wrap.
+All four Paula volume words are compared against module rows on every frame,
+including sample-less volume envelopes, written lead rests and the final-row
+four-channel cut. The run verifies 1,508 channel starts over 1,067 rows and 6,398
+displayed wireframe buffers. A passing baseline precedes a mutation that ignores
+volume-only commands; the envelope reference catches it at frame eight.
+
+All 21 host tests, 33 static mutations and deterministic assets pass. The module
+has eight populated instruments, eight unique patterns and 512 rows at speed six.
+Its 61.44-second nominal loop is unchanged. New drum PCM and two additional
+patterns add 2,688 bytes to the chip payload; non-music generated assets are
+unchanged. Average modeled work is 85,555 cycles, worst 109,906 (78% of a PAL
+frame), minimum starfield margin 2,746 cycles. DMA contention, blitter timing and
+physical hardware acceptance remain outside the model.
+
+The libopenmpt host mix renders 61.450 seconds at 48 kHz stereo, peak -7.42 dBFS,
+RMS -24.98 dBFS and no clipped samples. Section RMS ranges from -27.60 dBFS in
+the breakdown to -23.74 dBFS in the hook. Two consecutive `make music-preview`
+runs safely replace the existing WAV. Invalid durations and source-MOD output
+paths are rejected without modifying the module. These measurements and a host
+mix preview do not replace listening on Paula or a full Amiga emulator.

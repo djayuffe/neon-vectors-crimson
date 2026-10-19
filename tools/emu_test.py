@@ -734,6 +734,23 @@ def ref_bresenham(x1, y1, x2, y2):
     return pts
 
 
+def ref_volume_rows(module, count):
+    """Paula volumes after each row, including sample-less cuts and envelopes."""
+    order = module[952:952+module[950]]
+    levels, rows = [0]*4, []
+    for row in range(count):
+        base = 1084+order[(row//64)%len(order)]*1024+(row%64)*16
+        for channel in range(4):
+            b0,b1,b2,b3 = module[base+channel*4:base+channel*4+4]
+            sample = (b0&0xF0)|(b2>>4)
+            if sample:
+                levels[channel] = min(64,module[20+(sample-1)*30+25])
+            if b2&15 == 12:
+                levels[channel] = min(64,b3)
+        rows.append(tuple(levels))
+    return rows
+
+
 def ref_wire(k, verts, edges, consts, pulse=0):
     import math
     D, ZOFF, CX, CY, SWAY, ZOOM = consts
@@ -928,16 +945,22 @@ def main():
     # Every frame, the wireframe buffer the Copper is showing must equal the reference frame
     # exactly, including the rows outside the band. A single snapshot can miss stale pixels
     # that only occur in rows the object seldom reaches.
-    wire_fail, pulse_fail, ring_fail, wave_fail, aurora_fail, separator_fail = [], [], [], [], [], []
+    wire_fail, pulse_fail, ring_fail, wave_fail, aurora_fail, separator_fail, volume_fail = [], [], [], [], [], [], []
     wire_frames = [0]
     aurora_reference = gen_tables.aurora_banks()
     separator_reference = gen_tables.raster_banks()
+    volume_reference = ref_volume_rows(mod,(args.frames+5)//6+1)
     gallery_frames = {128+256*scene for scene in range(8)} | {1148}
     if args.gallery_dir:
         args.gallery_dir.mkdir(parents=True, exist_ok=True)
     def wire_each_frame(n, bpl2):
         if n < 3 or wire_fail:
             return
+        if not volume_fail:
+            expected = volume_reference[(n-2)//6]
+            actual = tuple(a.mem.r16(CUSTOM+0xA8+16*channel) for channel in range(4))
+            if actual != expected:
+                volume_fail.append('tracker row-volume envelope differs at frame %d: %s != %s' % (n,actual,expected))
         eq = a.consts
         if not wave_fail:
             frame = n-1
@@ -1224,7 +1247,7 @@ def main():
         rows = sorted({i // 40 for i in bad})
         check(not bad, '%s differs from the expected image in %d bytes (rows %s...)' % (name, len(bad), rows[:6]))
         return not bad
-    for m_ in wire_fail+pulse_fail+ring_fail+wave_fail+aurora_fail+separator_fail:
+    for m_ in wire_fail+pulse_fail+ring_fail+wave_fail+aurora_fail+separator_fail+volume_fail:
         check(False, m_)
     ok0 = diff('plane 0 (logo + mid stars + scroller)', sn['planes'][0], e0)
     ok2 = diff('plane 2 (far + near stars)', sn['planes'][2], e2)

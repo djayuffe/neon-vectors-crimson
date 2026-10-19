@@ -107,14 +107,19 @@ def pcm(v):
 # Paula samples are signed two's-complement bytes; $00 is silence.
 def pcm_sine(n=128,amp=80): return bytes(pcm(128+int(amp*math.sin(2*math.pi*i/n))) for i in range(n))
 def pcm_square(n=128,amp=70): return bytes(pcm(128+amp if i<n//2 else 128-amp) for i in range(n))
-def pcm_kick(n=512):
+def pcm_kick(n=640):
     out=[]; ph=0.0
     for i in range(n):
-        t=i/n; ph+=2*math.pi*(90*(1-t)+25)/8000; out.append(pcm(128+int(110*math.exp(-6*t)*math.sin(ph))))
+        t=i/n
+        ph += 2*math.pi*(44+105*math.exp(-12*t))/8000
+        body = math.sin(ph)*math.exp(-5.2*t)
+        click = .08*math.sin(2*math.pi*1800*i/8000)*math.exp(-55*t)
+        out.append(pcm(128+round(106*body+80*click)))
     return bytes(out)
 def pcm_hat(n=256):
     rng=random.Random(68000)
-    return bytes(pcm(128+int(90*math.exp(-5*i/n)*rng.uniform(-1,1))) for i in range(n))
+    noise=[rng.uniform(-1,1) for _ in range(n+1)]
+    return bytes(pcm(128+round(64*math.exp(-5*i/n)*(noise[i+1]-noise[i]))) for i in range(n))
 def pcm_saw(n=128,amp=72):
     # A finite harmonic series avoids a full-scale discontinuity at the wrap.
     values = [sum(math.sin(2*math.pi*k*i/n)/k for k in range(1, 7)) for i in range(n)]
@@ -126,7 +131,8 @@ def pcm_pulse(n=64,amp=62):
     for _ in range(2):
         values = [sum(values[(i+j)%n]*w for j,w in zip(range(-2,3),(1,2,3,2,1)))/9 for i in range(n)]
     return bytes(pcm(128+round(v)) for v in values)
-def pcm_pad(n=128,amp=64): return bytes(pcm(128+int(amp*(0.7*math.sin(2*math.pi*i/n)+0.3*math.sin(4*math.pi*i/n)))) for i in range(n))
+def pcm_pad(n=128,amp=64):
+    return bytes(pcm(128+round(amp*(.72*math.sin(2*math.pi*i/n)+.19*math.sin(4*math.pi*i/n)+.09*math.sin(6*math.pi*i/n)))) for i in range(n))
 def pcm_snare(n=640):
     rng=random.Random(1200)
     out=[]
@@ -134,7 +140,7 @@ def pcm_snare(n=640):
         t=i/n; env=math.exp(-5.5*t)
         out.append(pcm(128+int(105*env*(0.65*rng.uniform(-1,1)+0.35*math.sin(2*math.pi*190*i/8000)))))
     return bytes(out)
-def pcm_open(n=1024):
+def pcm_open(n=1536):
     rng=random.Random(4242)
     return bytes(pcm(128+int(70*math.exp(-2.6*i/n)*rng.uniform(-1,1))) for i in range(n))
 def percussion_envelope(data, attack=8, release=64):
@@ -166,59 +172,81 @@ def ev(sample=0,note=None,fx=0,param=0):
     return bytes([(sample&0xf0)|((p>>8)&15),p&255,((sample&15)<<4)|(fx&15),param&255])
 def up(note): return note[:-1]+str(int(note[-1])+1)
 BASS=['A1','F1','C2','G1']
+FIFTH=['E2','C2','G2','D2']
+APPROACH=['E1','B1','F#1','G#1']
 PADS=[['A2','C3','E3'],['F2','A2','C3'],['C3','E3','G3'],['G2','B2','D3']]
-LEAD=[['C3','E3','A3'],['C3','F3','A3'],['C3','E3','G3'],['D3','G3','B3']]
-MOTIFS={'c':[[0,1,2,1,0,1,2,2],[2,1,2,0,1,2,1,0],[0,2,1,2,0,2,1,None],[2,2,1,0,1,0,None,2]],
-        'e':[[2,None,2,1,0,None,1,2],[2,1,0,None,0,1,2,None],[1,2,2,0,1,2,1,2],[0,1,2,2,1,1,0,None]]}
-MOTIFS['f'] = [[2,1,0,1,2,None,1,0],[2,2,1,0,1,2,0,None],
-               [0,1,2,2,1,0,1,None],[2,1,0,1,2,1,0,0]]
+# Four phrases of eight steps: a lead melody, not only repeated chord tones.
+HOOK=[['E3','A3','G3','E3','D3','C3',None,'E3'],
+      ['A3','G3','F3','E3','C3','A2','C3',None],
+      ['E3','G3','C3','D3','E3','G3','A3','G3'],
+      ['D3','B2','D3','G3','F3','D3','B2',None]]
+RESPONSE=[['C3','E3',None,'A3','G3','E3','D3',None],
+          ['C3','F3','A3','G3',None,'E3','C3',None],
+          ['G3','E3','D3','C3','E3',None,'G3','E3'],
+          ['B2','D3','G3','A3','G3','D3',None,'B2']]
+
 def build(kind):
     rows=[[ev(),ev(),ev(),ev()] for _ in range(64)]
     for r in range(64):
-        ch=r//16; rr=r%16
-        # channel 0: bass
-        if kind=='a':
-            if rr in (0,8): rows[r][0]=ev(S_BASS,BASS[ch])
-        elif kind=='d':
-            if rr==0: rows[r][0]=ev(S_BASS,BASS[ch],0xC,40)
+        chord, rr = r//16, r%16
+        root, fifth, pad = BASS[chord], FIFTH[chord], PADS[chord]
+        # The last movement's E7 dominant resolves into the opening A minor.
+        if kind=='h' and chord==3:
+            root, fifth, pad = 'E1','B1',['E2','G#2','B2']
+        # Bass attacks, octave/fifth pickups and explicit row-volume envelopes.
+        hits = (0,8) if kind=='a' else (0,) if kind=='e' else (0,3,6,8,11,14)
+        if rr in hits:
+            note = fifth if rr in (6,14) else up(root) if rr==11 else root
+            rows[r][0] = ev(S_BASS,note,0xC,50 if rr in (0,8) else 40)
+        elif rr in (1,4,7,9,12): rows[r][0] = ev(fx=0xC,param=25 if kind!='e' else 28)
+        elif rr in (2,5,10,13): rows[r][0] = ev(fx=0xC,param=12)
+        if kind in ('d','f','g') and rr==15:
+            rows[r][0] = ev(S_BASS,APPROACH[chord],0xC,30)
+        # Pads establish the progression; later movements answer with a real hook.
+        if kind in ('a','b','d','e'):
+            step=4 if kind in ('a','e') else 2
+            if rr%step==0:
+                index=(rr//step)%3
+                if kind=='d': index=(2-index)%3
+                rows[r][1]=ev(S_PAD,pad[index],0xC,(28 if rr%8==0 else 21) if kind!='e' else 24)
+            elif rr%step==step-1: rows[r][1]=ev(fx=0xC,param=14)
         else:
-            if rr in (0,3,6,8,11,14):
-                note=BASS[ch] if rr not in (6,14) else up(BASS[ch])
-                rows[r][0]=ev(S_BASS,note)
-        # channel 1: pad arp (a, d, b) or lead (c, e)
-        if kind in ('a','b','d'):
-            step=2 if kind!='d' else 4
-            if r%step==0: rows[r][1]=ev(S_PAD,PADS[ch][(r//step)%3],0xC,((30 if rr%8==0 else 23) if kind!='a' else 28))
-        else:
-            m=MOTIFS[kind][ch]
-            if rr%2==0 and m[rr//2] is not None and rr<16:
-                rows[r][1]=ev(S_LEAD,LEAD[ch][m[rr//2]],0xC,(40 if rr%8 else 46))
-        # Quiet off-beat echoes answer the lead without tracker delay effects.
-        if kind in ('e','f') and rr%2==1 and m[rr//2] is not None:
-            rows[r][1]=ev(S_LEAD,LEAD[ch][m[rr//2]],0xC,14 if kind=='e' else 18)
-        # channel 2: kick / snare
-        fill = kind in ('c','e','f') and r>=56 or kind=='d' and r>=48
-        if kind!='d' or r>=48:
-            if fill:
-                if r%2==0: rows[r][2]=ev(S_SNARE,'C2',0xC,28+((r-48)//2)*3 if kind=='d' else 40+(r-56)*3)
-            elif r%8==0 or (kind!='a' and r%16==10):
-                rows[r][2]=ev(S_KICK,'C2')
-            elif kind!='a' and r%8==4:
-                rows[r][2]=ev(S_SNARE,'C2')
-        # channel 3: hats (or pad arp for a/d where ch1 is lead-free)
-        if kind in ('b','c','e','f'):
-            if r%2==0: rows[r][3]=ev(S_HAT,'C2',0xC,(34 if r%8==0 else 20))
-            if r%8==6: rows[r][3]=ev(S_OPEN,'C2')
+            motif=RESPONSE[chord] if kind=='f' else HOOK[chord]
+            note=motif[rr//2]
+            if kind=='h' and chord==3:
+                note=['E3','G#3','B3','G#3','E3','D3','B2',None][rr//2]
+            if rr%2==0:
+                rows[r][1]=ev(S_LEAD,note,0xC,42 if rr%8==0 else 34) if note else ev(fx=0xC,param=0)
+            elif note:
+                # Fade the same voice; an echo retrigger only answers selected phrases.
+                rows[r][1]=ev(S_LEAD,note,0xC,12) if kind=='g' and rr in (5,13) else ev(fx=0xC,param=18)
+            else: rows[r][1]=ev(fx=0xC,param=0)
+        # A restrained intro, full groove, breakdown and graduated final-bar fills.
+        if kind!='e' or r>=48:
+            if rr in (0,8) or kind in ('c','d','f','g') and rr==10:
+                rows[r][2]=ev(S_KICK,'C2',0xC,60 if rr in (0,8) else 44)
+            elif kind!='a' and rr in (4,12): rows[r][2]=ev(S_SNARE,'C2',0xC,50)
+            elif kind in ('d','g') and rr==11: rows[r][2]=ev(S_SNARE,'C2',0xC,15)
+            if chord==3 and kind in ('c','e','f','g') and rr in (8,10,12,14):
+                rows[r][2]=ev(S_SNARE,'C2',0xC,22+2*rr)
+        # Alternating hat accents leave room for sparse chime responses.
+        if kind=='e':
+            if rr%8==4: rows[r][3]=ev(S_HAT,'C2',0xC,9)
         elif kind=='a':
-            if r%4==2: rows[r][3]=ev(S_HAT,'C2',0xC,18)
+            if rr%4==2: rows[r][3]=ev(S_HAT,'C2',0xC,14)
         else:
-            if r%4==0: rows[r][3]=ev(S_HAT,'C2',0xC,16)
-        if kind in ('e','f') and rr==14:
-            rows[r][3]=ev(S_CHIME,PADS[ch][2],0xC,24 if kind=='e' else 32)
-    c1=rows[0][0]; rows[0][0]=ev(S_BASS,BASS[0],0xF,6) if kind=='a' and c1 else rows[0][0]
+            if rr%2==0: rows[r][3]=ev(S_HAT,'C2',0xC,(23,12,18,14)[(rr//2)%4])
+            if rr in (6,14): rows[r][3]=ev(S_OPEN,'C2',0xC,22 if rr==6 else 17)
+        if kind in ('f','g','h') and rr==14:
+            rows[r][3]=ev(S_CHIME,pad[2],0xC,24 if kind!='g' else 28)
+    # Explicitly end sustained voices at phrase rests and the loop turnaround.
+    if kind=='h':
+        rows[63]=[ev(fx=0xC,param=0) for _ in range(4)]
+    rows[0][0]=ev(S_BASS,BASS[0],0xF,6) if kind=='a' else rows[0][0]
     return b''.join(b''.join(row) for row in rows)
-patterns=[build(k) for k in 'abcdef']
-ORDER=[0,1,2,1,3,2,4,5]
+
+patterns=[build(kind) for kind in 'abcdefgh']
+ORDER=list(range(8))
 header+=bytes([len(ORDER),0])+bytes(ORDER+[0]*(128-len(ORDER)))+b'M.K.'
 mod=header+b''.join(patterns)+b''.join(d+(b'\0' if len(d)%2 else b'') for _,d,_v,_l in samples)
 (A/'neon.mod').write_bytes(mod)

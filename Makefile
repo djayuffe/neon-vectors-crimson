@@ -55,6 +55,10 @@ verify-repro:
 gallery: all
 	$(PYTHON) tools/emu_test.py --frames 2100 --snap 1850 --gallery-dir build/scene-gallery
 
+# Audition the generated MOD without an Amiga ROM. Needs openmpt123 on PATH.
+music-preview: $(ASSETS)
+	$(PYTHON) tools/render_music.py
+
 # Eight seconds of silent, actual executable output. Needs ffmpeg on PATH.
 preview: all
 	$(PYTHON) tools/emu_test.py --frames 1450 --snap 1148 --record-dir build/preview-frames
@@ -116,4 +120,4 @@ dist: release
 	$(PYTHON) tools/emu_test.py --ntsc --frames 100
 	$(PYTHON) tools/package_release.py
 
-.PHONY: preview gallery dist FORCE test all assets validate mutants verify-repro emutest emu-mutants manifest toolchain hunkcheck clean distclean release
+.PHONY: music-preview preview gallery dist FORCE test all assets validate mutants verify-repro emutest emu-mutants manifest toolchain hunkcheck clean distclean release

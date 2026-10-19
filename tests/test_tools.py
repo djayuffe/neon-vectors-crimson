@@ -283,12 +283,27 @@ class EffectsMusicTests(unittest.TestCase):
             self.assertEqual(tilts[scene*32+31], g.RING_TILTS[scene])
             self.assertLessEqual(abs(tilts[scene*32]-g.RING_TILTS[(scene-1)&7]),1)
 
+    def test_tracker_phrase_rests_and_loop_turnaround(self):
+        from emu_test import ref_volume_rows
+        root = Path(__file__).resolve().parents[1]
+        mod = (root/'assets/neon.mod').read_bytes()
+        rows = ref_volume_rows(mod,513)
+        self.assertEqual(rows[511], (0,0,0,0))
+        self.assertGreater(rows[512][0],0)
+        # The hook's first written rest must mute the looping lead.
+        hook_base = 1084+2*1024
+        rest = hook_base+12*16+4
+        self.assertEqual(mod[rest:rest+4], bytes((0,0,12,0)))
+        self.assertEqual(rows[2*64+12][1],0)
+        patterns = [mod[1084+i*1024:1084+(i+1)*1024] for i in range(8)]
+        self.assertEqual(len(set(patterns)),8)
+
     def test_music_voices_arrangement_and_sample_endpoints(self):
         root = Path(__file__).resolve().parents[1]
         mod = (root/'assets/neon.mod').read_bytes()
         order = list(mod[952:952+mod[950]])
-        self.assertEqual(order, [0,1,2,1,3,2,4,5])
-        self.assertEqual(len(set(order)), 6)
+        self.assertEqual(order, list(range(8)))
+        self.assertEqual(len(set(order)), 8)
         offset = 1084+(max(order)+1)*1024
         count = 0
         for instrument in range(31):

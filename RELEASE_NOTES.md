@@ -1,5 +1,13 @@
 # Release notes
 
+## Tracker arrangement and rhythm revision
+
+- Eight unique musical patterns with a melodic hook, answer, breakdown and E7 turnaround.
+- Explicit lead rests and four-channel silence at the loop boundary.
+- Shaped bass volume, fifth/octave pickups, ghost snares, hat accents and fills.
+- Refined kick, high-passed closed hats, longer open hats and richer pad.
+- Per-frame Paula volume verification and a repeatable `make music-preview` command.
+
 ## Run and review the production
 
 - Scene-coloured logo separator with a slower base glow and real musical cue lift.

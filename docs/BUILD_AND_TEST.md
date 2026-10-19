@@ -99,3 +99,15 @@ ffmpeg -y -framerate 50 -i build/preview-frames/frame-%04d.png -frames:v 400 -c:
 window must fit inside the run and start at frame three or later. Captures do
 not alter emulated CPU timing. These visual models do not replace DMA/blitter
 or genuine Kickstart acceptance in a full Amiga emulator or physical machine.
+
+## Audition tracker edits
+
+`make music-preview` renders the current generated module to
+`build/music_preview.wav` using `openmpt123`. Output is staged in a temporary
+folder and replaces the previous WAV only after a successful render and format
+check. The command reports duration, peak level and clipped samples. Rendering
+uses the host libopenmpt mixer rather than emulated Paula audio.
+
+Edit the explicit note/volume arrangement in `tools/generate_assets.py`, then run
+`make assets all test verify-repro` and `make music-preview`. The replay harness
+also checks sample-less `Cxx` volume envelopes and rests on every emulated frame.

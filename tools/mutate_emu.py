@@ -13,6 +13,9 @@ _workspace = tempfile.TemporaryDirectory(prefix='neon-emu-')
 M = Path(_workspace.name) / 'repo'
 
 MUTANTS = [
+    ('tracker volume-only commands ignored', 'src/modplayer.s',
+     '.effects:\n        cmp.w   #$0C,d3',
+     '.effects:\n        tst.w   d1\n        beq     .fxf\n        cmp.w   #$0C,d3', 'row-volume envelope'),
     ('separator music cue lost', 'src/main.s',
      '        move.w  visual_pulse,d1\n        lsr.w   #2,d1',
      '        clr.w   d1\n        lsr.w   #2,d1', 'separator glow'),

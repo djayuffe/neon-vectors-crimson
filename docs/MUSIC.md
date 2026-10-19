@@ -2,7 +2,8 @@
 
 `assets/neon.mod` is a deterministic four-channel, 31-slot `M.K.` module. Eight
 slots are populated: saw bass, pulse lead, kick, snare, closed hat, open hat, pad and chime.
-Six patterns follow order `0,1,2,1,3,2,4,5`, built around Am–F–C–G. At speed six,
+Eight distinct patterns follow order `0,1,2,3,4,5,6,7`, built around Am–F–C–G,
+with an E7 turnaround into A minor at the end. At speed six,
 512 rows last 3,072 PAL frames (61.44 seconds), independently of the visual loop.
 
 ## Sample format
@@ -39,21 +40,46 @@ The behavioural harness compares each DMA start and reload against module data,
 including `Cxx` overrides. Teardown disables audio DMA and clears volumes rather
 than resuming another client’s DMA against changed sample registers.
 
-## Arrangement and timbre revision
+## Arrangement and timbre
 
-The bass uses six harmonics rather than a discontinuous ramp. The quarter-duty
-lead is circularly smoothed without changing its period; pad notes have stronger
-phrase accents. One-shot samples have short attacks and zero-ending release ramps.
-A decaying two-partial chime answers phrases, while quiet off-beat lead echoes and
-a distinct final pattern build the finale. All variation uses supported notes and
-volume commands; the player’s effect set and six-tick timing are unchanged.
+| Pattern | Role |
+| --- | --- |
+| 0 | Sparse bass-and-pad introduction |
+| 1 | Full groove and chord arpeggios |
+| 2 | Main melodic hook and final-bar snare fill |
+| 3 | Reversed chord answers, bass pickups and ghost snare |
+| 4 | Sparse breakdown with a graduated drum return |
+| 5 | Answering lead phrase and chime responses |
+| 6 | Full hook with selected quiet echo retriggers |
+| 7 | Final hook, E7 dominant and an explicit silent turnaround |
+
+The bass alternates roots, fifths and octave pickups, with row-volume envelopes
+and approach notes. Lead phrases use scale tones beyond the triads. Written rests
+send sample-less `C00`; otherwise a looped sample would keep sounding across the
+rest. Other volume-only rows decay the existing voice without restarting its PCM.
+Hat accents, ghost snares and graduated fills give the groove more variation.
+
+The kick has a short pitched transient and exponential low-frequency sweep.
+Closed hats use high-passed deterministic noise; open hats have a longer decay.
+The pad adds a quiet third harmonic. Loop seams, signed PCM/DC balance and zero
+one-shot endpoints retain the asset quality checks. The final row explicitly
+zeros all four channel volumes before the next loop starts.
+
+All music still uses explicit notes, `Cxx` volume and `F06` speed. It needs no
+additional channels, runtime synthesis, BPM changes or unsupported tracker effects.
+The executable harness checks actual Paula volume words every frame, including
+volume-only rows, as well as DMA starts and reloads.
 
 For an optional host-rendered listening preview (requires `openmpt123`):
 
 ```sh
-mkdir -p build
-openmpt123 --batch --no-float --end-time 61.44 -o build/music_preview.wav assets/neon.mod
+make music-preview
 ```
+
+This writes `build/music_preview.wav` atomically, so repeated renders safely replace
+the old preview. For another output path or duration, use
+`python3 tools/render_music.py --output build/audition.wav --seconds 61.44`.
+The source module is never overwritten.
 
 This uses libopenmpt’s mixing and filters, rather than emulated Paula output.
 Compare it with a cycle-exact Amiga run when judging the final soundtrack.
